@@ -76,7 +76,6 @@ services:
   - type: web
     name: grievance-portal-client
     runtime: static
-    region: oregon
     plan: free
     rootDir: client
     buildCommand: npm install && npm run build
