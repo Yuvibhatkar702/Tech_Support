@@ -62,8 +62,6 @@ services:
   - type: web
     name: grievance-portal-ai
     runtime: python
-    region: oregon
-    plan: free
     rootDir: ai_model
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
