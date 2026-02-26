@@ -68,10 +68,16 @@ export default function QRCodeScanner({ onScan, onClose, onError }) {
       isCancelled = true;
       const current = scannerRef.current;
       if (current) {
-        current
-          .stop()
-          .then(() => current.clear())
-          .catch((err) => console.warn('Scanner cleanup error:', err));
+        const state = current.getState?.();
+        // Only stop if scanner is actively running or paused (state 2 = SCANNING, state 3 = PAUSED)
+        if (state === 2 || state === 3) {
+          current
+            .stop()
+            .then(() => current.clear())
+            .catch((err) => console.warn('Scanner cleanup error:', err));
+        } else {
+          try { current.clear(); } catch (_) { /* ignore */ }
+        }
       }
     };
   }, [isScanning, cameraFacing, onScan, onError, t]);

@@ -9,7 +9,7 @@ export default function CitizenPortalPage() {
   const { t } = useTranslation();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [citizenData, setCitizenData] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('citizenToken'));
+  const [token, setToken] = useState(null);
   
   // Login state
   const [step, setStep] = useState('phone'); // phone, otp
@@ -25,8 +25,8 @@ export default function CitizenPortalPage() {
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    if (token) {
-      fetchProfile();
+    if (token && !isLoggedIn) {
+      fetchProfile(token);
     }
   }, [token]);
 
@@ -37,10 +37,11 @@ export default function CitizenPortalPage() {
     }
   }, [countdown]);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (authToken) => {
+    const t = authToken || token;
     try {
       const response = await fetch(`${API_BASE}/citizen/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await response.json();
       
@@ -48,7 +49,7 @@ export default function CitizenPortalPage() {
         setCitizenData(data.data);
         setStats(data.data.stats);
         setIsLoggedIn(true);
-        fetchComplaints();
+        fetchComplaints('' , t);
       } else {
         handleLogout();
       }
@@ -58,13 +59,14 @@ export default function CitizenPortalPage() {
     }
   };
 
-  const fetchComplaints = async (status = '') => {
+  const fetchComplaints = async (status = '', authToken) => {
+    const t = authToken || token;
     try {
       const params = new URLSearchParams({ limit: 50 });
       if (status) params.append('status', status);
       
       const response = await fetch(`${API_BASE}/citizen/complaints?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await response.json();
       
@@ -92,9 +94,25 @@ export default function CitizenPortalPage() {
       if (data.success) {
         setStep('otp');
         setCountdown(60);
-        // In dev mode, auto-fill OTP if returned
+        // In dev mode, auto-fill OTP and auto-verify
         if (data.otp) {
           setOtp(data.otp);
+          // Auto-verify after a short delay
+          setTimeout(async () => {
+            try {
+              const verifyRes = await fetch(`${API_BASE}/citizen/verify-otp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phoneNumber, otp: data.otp }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                localStorage.setItem('citizenToken', verifyData.data.token);
+                setToken(verifyData.data.token);
+                setLoading(false);
+              }
+            } catch (_) { /* fallback to manual entry */ }
+          }, 1000);
         }
       } else {
         setError(data.message || 'Failed to send OTP');
@@ -122,9 +140,6 @@ export default function CitizenPortalPage() {
       if (data.success) {
         localStorage.setItem('citizenToken', data.data.token);
         setToken(data.data.token);
-        setCitizenData(data.data.citizen);
-        setIsLoggedIn(true);
-        fetchComplaints();
       } else {
         setError(data.message || 'Invalid OTP');
       }
@@ -476,9 +491,51 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
         )}
 
         {complaint.address?.fullAddress && (
-          <p className="text-gray-500 text-xs flex items-center gap-1">
+          <p className="text-gray-500 text-xs flex items-center gap-1 mb-3">
             <span>📍</span> {complaint.address.fullAddress}
           </p>
+        )}
+
+        {/* Complaint Image */}
+        {complaint.image?.url && (
+          <div className="mb-3 rounded-lg overflow-hidden">
+            <img
+              src={complaint.image.url}
+              alt="Complaint"
+              className="w-full h-40 object-cover rounded-lg"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        {/* Multiple Images */}
+        {complaint.images?.length > 0 && !complaint.image?.url && (
+          <div className="mb-3 flex gap-2 overflow-x-auto">
+            {complaint.images.slice(0, 3).map((img, idx) => (
+              <img
+                key={idx}
+                src={img.url}
+                alt={`Complaint ${idx + 1}`}
+                className="w-28 h-20 object-cover rounded-lg flex-shrink-0"
+                loading="lazy"
+              />
+            ))}
+            {complaint.images.length > 3 && (
+              <div className="w-28 h-20 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-sm text-gray-500">
+                +{complaint.images.length - 3} more
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Classification */}
+        {complaint.aiClassification?.category && (
+          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+            <span>🤖 AI: {complaint.aiClassification.category}</span>
+            {complaint.aiClassification.confidence && (
+              <span>({Math.round(complaint.aiClassification.confidence * 100)}%)</span>
+            )}
+          </div>
         )}
 
         {/* Status Timeline */}
@@ -579,7 +636,7 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
 
       <div className="bg-gray-50 px-5 py-3 flex justify-between items-center">
         <Link
-          to={`/track?id=${complaint.complaintId}`}
+          to={`/track/${complaint.complaintId}`}
           className="text-primary-600 text-sm font-medium hover:underline"
         >
           View Details

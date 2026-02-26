@@ -272,7 +272,7 @@ export default function CommunityFeed() {
                         </button>
 
                         <Link
-                          to={`/track?id=${complaint.complaintId}`}
+                          to={`/track/${complaint.complaintId}`}
                           className="text-primary-600 text-sm font-medium hover:underline"
                         >
                           View Details →
@@ -347,7 +347,7 @@ export default function CommunityFeed() {
                   {trending.slice(0, 5).map((complaint, index) => (
                     <Link
                       key={complaint._id}
-                      to={`/track?id=${complaint.complaintId}`}
+                      to={`/track/${complaint.complaintId}`}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
                     >
                       <span className="text-lg font-bold text-gray-400">

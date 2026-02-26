@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QRCodeSVG } from 'qrcode.react';
 import {
   MagnifyingGlassIcon,
   ArrowLeftIcon,
@@ -13,7 +12,6 @@ import {
   ClockIcon,
   ExclamationCircleIcon,
   ArrowPathIcon,
-  ShareIcon,
   DocumentDuplicateIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
@@ -228,78 +226,6 @@ function ComplaintCard({ complaint }) {
   );
 }
 
-// QR Code Section
-function QRCodeSection({ complaintId, trackingUrl }) {
-  const { t } = useTranslation();
-  const { addToast } = useToastStore();
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(complaintId);
-      addToast(t('copied_to_clipboard'), 'success');
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  const shareComplaint = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: t('complaint_tracking'),
-          text: `${t('complaint_id')}: ${complaintId}`,
-          url: trackingUrl,
-        });
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Error sharing:', err);
-        }
-      }
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <h3 className="font-semibold text-gray-900 mb-4 text-center">
-        {t('quick_reference')}
-      </h3>
-
-      <div className="flex justify-center mb-4">
-        <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <QRCodeSVG
-            value={trackingUrl}
-            size={140}
-            level="M"
-            bgColor="#ffffff"
-            fgColor="#1e40af"
-          />
-        </div>
-      </div>
-
-      <p className="text-sm text-gray-500 text-center mb-4">
-        {t('scan_to_track')}
-      </p>
-
-      <div className="flex gap-2">
-        <button
-          onClick={copyToClipboard}
-          className="flex-1 py-2.5 px-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-2"
-        >
-          <DocumentDuplicateIcon className="w-4 h-4" />
-          {t('copy_id')}
-        </button>
-        <button
-          onClick={shareComplaint}
-          className="flex-1 py-2.5 px-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-2"
-        >
-          <ShareIcon className="w-4 h-4" />
-          {t('share')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // Main Page Component
 export default function EnhancedTrackComplaintPage() {
   const { t } = useTranslation();
@@ -307,7 +233,10 @@ export default function EnhancedTrackComplaintPage() {
   const { complaintId: urlComplaintId } = useParams();
   const { addToast } = useToastStore();
 
-  const [searchId, setSearchId] = useState(urlComplaintId || '');
+  const [searchId, setSearchId] = useState(() => {
+    if (urlComplaintId) return urlComplaintId.replace(/^GRV/i, '');
+    return '';
+  });
   const [complaint, setComplaint] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -315,7 +244,7 @@ export default function EnhancedTrackComplaintPage() {
 
   useEffect(() => {
     if (urlComplaintId) {
-      setSearchId(urlComplaintId);
+      setSearchId(urlComplaintId.replace(/^GRV/i, ''));
       fetchComplaint(urlComplaintId);
     }
   }, [urlComplaintId]);
@@ -346,8 +275,9 @@ export default function EnhancedTrackComplaintPage() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchId.trim()) {
-      navigate(`/track/${searchId.trim()}`);
-      fetchComplaint(searchId.trim());
+      const fullId = `GRV${searchId.trim()}`;
+      navigate(`/track/${fullId}`);
+      fetchComplaint(fullId);
     }
   };
 
@@ -363,7 +293,7 @@ export default function EnhancedTrackComplaintPage() {
     const id = scannedId.trim().toUpperCase();
     if (!id) return;
 
-    setSearchId(id);
+    setSearchId(id.replace(/^GRV/i, ''));
     setShowScanner(false);
     navigate(`/track/${id}`);
     fetchComplaint(id);
@@ -399,14 +329,16 @@ export default function EnhancedTrackComplaintPage() {
               {t('enter_complaint_id')}
             </label>
             <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="flex-1 relative flex">
+                <span className="inline-flex items-center px-4 bg-gray-100 border border-r-0 border-gray-200 rounded-l-xl text-gray-600 font-mono font-semibold text-sm select-none">
+                  GRV
+                </span>
                 <input
                   type="text"
                   value={searchId}
-                  onChange={(e) => setSearchId(e.target.value.toUpperCase())}
-                  placeholder="GRV-XXXXXX"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono uppercase"
+                  onChange={(e) => setSearchId(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="2602260001"
+                  className="w-full pl-3 pr-4 py-3 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono"
                 />
               </div>
               <button
@@ -506,35 +438,6 @@ export default function EnhancedTrackComplaintPage() {
                   history={complaint.statusHistory}
                   currentStatus={complaint.status}
                 />
-              </div>
-
-              {/* QR Code */}
-              <QRCodeSection
-                complaintId={complaint.complaintId}
-                trackingUrl={`${window.location.origin}/track/${complaint.complaintId}`}
-              />
-
-              {/* Help Section */}
-              <div className="bg-blue-50 rounded-2xl p-5">
-                <h4 className="font-medium text-blue-900 mb-3">
-                  {t('need_help')}
-                </h4>
-                <div className="space-y-2">
-                  <a
-                    href="#"
-                    className="flex items-center justify-between p-3 bg-white rounded-xl text-sm text-blue-700 hover:bg-blue-100 transition"
-                  >
-                    <span>{t('contact_support')}</span>
-                    <ChevronRightIcon className="w-4 h-4" />
-                  </a>
-                  <a
-                    href="#"
-                    className="flex items-center justify-between p-3 bg-white rounded-xl text-sm text-blue-700 hover:bg-blue-100 transition"
-                  >
-                    <span>{t('faq')}</span>
-                    <ChevronRightIcon className="w-4 h-4" />
-                  </a>
-                </div>
               </div>
 
               {/* Submit Another */}
