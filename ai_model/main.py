@@ -41,9 +41,12 @@ from pydantic import BaseModel
 # ─── Config ───────────────────────────────────────────────────────────────────
 
 CATEGORIES = [
-    "DamagedRoads",
-    "ElectricityIssues",
-    "GarbageAndSanitation",
+    "Damaged Road Issue",
+    "Fallen Trees",
+    "Garbage and Trash Issue",
+    "Illegal Drawing on Walls",
+    "Street Light Issue",
+    "Other"
 ]
 NUM_CLASSES = len(CATEGORIES)
 MODEL_WEIGHTS_PATH = Path(os.getenv("MODEL_WEIGHTS", "weights/classifier.pt"))

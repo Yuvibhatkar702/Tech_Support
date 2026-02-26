@@ -28,23 +28,28 @@ const complaintSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
-    // New categories (3) - from AI model
-    'DamagedRoads',
-    'ElectricityIssues',
-    'GarbageAndSanitation',
-    
-    // // Legacy categories (10) - for backward compatibility
-    // 'road_damage',
-    // 'street_light',
-    // 'water_supply',
-    // 'sewage',
-    // 'garbage',
-    // 'encroachment',
-    // 'noise_pollution',
-    // 'illegal_construction',
-    // 'traffic',
-    // 'other'
-  ],
+      // Current categories (6)
+      'Damaged Road Issue',
+      'Fallen Trees',
+      'Garbage and Trash Issue',
+      'Illegal Drawing on Walls',
+      'Street Light Issue',
+      'Other',
+      // Legacy categories (for backward compatibility with existing data)
+      'DamagedRoads',
+      'ElectricityIssues',
+      'GarbageAndSanitation',
+      'road_damage',
+      'street_light',
+      'water_supply',
+      'sewage',
+      'garbage',
+      'encroachment',
+      'noise_pollution',
+      'illegal_construction',
+      'traffic',
+      'other'
+    ],
     index: true,
   },
   
@@ -233,10 +238,9 @@ const complaintSchema = new mongoose.Schema({
      predictedCategory: {
        type: String,
        enum: [
-        'DamagedRoads', 'ElectricityIssues', 'GarbageAndSanitation'
-        //  'road_damage', 'street_light', 'water_supply', 'sewage',
-        // 'garbage', 'encroachment', 'noise_pollution',
-        // 'illegal_construction', 'traffic', 'other',
+         'road_damage', 'street_light', 'water_supply', 'sewage',
+        'garbage', 'encroachment', 'noise_pollution',
+        'illegal_construction', 'traffic', 'other',
       ],
     },
     rawLabel:    String,
