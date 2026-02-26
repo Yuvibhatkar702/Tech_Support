@@ -45,6 +45,9 @@ import { useToastStore, useSettingsStore } from '../store';
 // ─── AI Classification helper ─────────────────────────────────────────────────
 const AI_CLASSIFY_URL = `${import.meta.env.VITE_API_URL || '/api'}/complaints/classify`;
 
+// Confidence threshold - predictions below this are treated as "Other"
+const CONFIDENCE_THRESHOLD = 0.40; // 40% - anything below is too uncertain
+
 async function callClassifyAPI(imageBlob) {
   const formData = new FormData();
   formData.append('image', imageBlob, 'complaint-image.jpg');
@@ -55,18 +58,29 @@ async function callClassifyAPI(imageBlob) {
   }
   const data = await res.json();
   const confMap = { high: 0.9, medium: 0.65, low: 0.35, none: 0 };
+  const confidence = confMap[data.confidence] ?? 0.9;
+  
+  // If confidence is below threshold, override to "Other"
+  const predicted_category = confidence < CONFIDENCE_THRESHOLD 
+    ? 'Other' 
+    : (data.category || 'Other');
+  
   return {
-    predicted_category: data.category || 'other',
-    confidence: confMap[data.confidence] ?? 0.9,
+    predicted_category,
+    confidence,
     raw_label: data.raw_label,
+    original_category: data.category, // Keep original for debugging
   };
 }
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 const CATEGORY_META = {
-  DamagedRoads:          { icon: '🛣️', color: 'bg-orange-100 text-orange-700 border-orange-200', label: 'Damaged Roads' },
-  ElectricityIssues:     { icon: '💡', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Electricity Issues' },
-  GarbageAndSanitation:  { icon: '🗑️', color: 'bg-green-100 text-green-700 border-green-200', label: 'Garbage & Sanitation' },
+  "Damaged Road Issue":        { icon: '🛣️', color: 'bg-orange-100 text-orange-700 border-orange-200', label: 'Damaged Road Issue' },
+  "Fallen Tree":               { icon: '🌳', color: 'bg-green-100 text-green-700 border-green-200', label: 'Fallen Tree' },
+  "Garbage and Trash Issue":   { icon: '🗑️', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Garbage and Trash Issue' },
+  "Illegal Drawing on Walls":  { icon: '🎨', color: 'bg-pink-100 text-pink-700 border-pink-200', label: 'Illegal Drawing on Walls' },
+  "Street Light Issue":        { icon: '💡', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Street Light Issue' },
+  "Other":                     { icon: '📋', color: 'bg-gray-100 text-gray-700 border-gray-200', label: 'Other' },
 };
 
 // Fallback for unknown categories returned by AI
@@ -77,7 +91,8 @@ function getCategoryMeta(category) {
   return CATEGORY_META[category] || DEFAULT_CATEGORY_META;
 }
 
-const ALL_CATEGORIES = Object.keys(CATEGORY_META);
+// Categories available for manual selection (excludes "Other")
+const ALL_CATEGORIES = Object.keys(CATEGORY_META).filter(cat => cat !== 'Other');
 
 // ─── Pencil mini-icon (avoids extra heroicons import) ─────────────────────────
 function PencilIcon() {
@@ -233,7 +248,7 @@ function PhotoUploadStep({ image, onCapture, onFileUpload, onRetake }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 2 — AI Classification
 // ─────────────────────────────────────────────────────────────────────────────
-function AIClassificationStep({ image, isClassifying, aiResult, aiError, onRetry, onOverride }) {
+function AIClassificationStep({ image, isClassifying, aiResult, aiError, onRetry, onOverride, isOtherCategory, isCategoryManuallySet }) {
   const { t } = useTranslation();
   const [showOverride, setShowOverride] = useState(false);
 
@@ -398,7 +413,13 @@ function AIClassificationStep({ image, isClassifying, aiResult, aiError, onRetry
               <p className="text-xl font-bold text-gray-900">
                 {meta.label}
               </p>
-              {aiResult.raw_label && aiResult.raw_label !== 'unknown' && (
+              {aiResult.original_category && aiResult.original_category !== aiResult.predicted_category && (
+                <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                  <ExclamationTriangleIcon className="w-3 h-3" />
+                  {t('low_confidence_downgrade', 'Low confidence - auto-classified as Other')}
+                </p>
+              )}
+              {aiResult.raw_label && aiResult.raw_label !== 'unknown' && !aiResult.original_category && (
                 <p className="text-xs text-gray-400 mt-0.5">
                   {t('raw_label', 'Raw label')}: {aiResult.raw_label}
                 </p>
@@ -434,6 +455,59 @@ function AIClassificationStep({ image, isClassifying, aiResult, aiError, onRetry
               <p className="text-xs text-gray-400">{t('used_for_ai', 'Used for AI classification')}</p>
             </div>
           </div>
+        )}
+
+        {/* Warning when AI predicts "Other" and not manually changed */}
+        {isOtherCategory && !isCategoryManuallySet && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4"
+          >
+            <div className="flex items-start gap-3">
+              <ExclamationTriangleIcon className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                  {t('other_category_warning_title', 'Cannot Submit - Photo Unrecognized')}
+                </h3>
+                <p className="text-sm text-amber-800 mb-3">
+                  {t('other_category_warning_message', 
+                    'The AI model could not identify a specific municipal issue in this photo. Complaints in the "Other" category cannot be submitted as they cannot be routed to the appropriate department. Please upload a clearer photo showing the specific issue, or manually select the correct category if this is a valid municipal complaint.'
+                  )}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => window.history.back()}
+                    className="flex-1 py-2 px-4 bg-white border border-amber-300 text-amber-700 rounded-lg hover:bg-amber-50 transition text-sm font-medium"
+                  >
+                    {t('go_back_upload_new', '← Go Back & Upload New Photo')}
+                  </button>
+                  <button
+                    onClick={() => setShowOverride(true)}
+                    className="flex-1 py-2 px-4 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
+                  >
+                    {t('select_category_manually', 'Select Correct Category')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Success message when manually changed from "Other" */}
+        {isOtherCategory && isCategoryManuallySet && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-green-50 border border-green-200 rounded-xl p-4"
+          >
+            <div className="flex items-center gap-2">
+              <CheckIcon className="w-5 h-5 text-green-600" />
+              <p className="text-sm text-green-800 font-medium">
+                {t('category_manually_updated', 'Category manually selected. You can now continue with your submission.')}
+              </p>
+            </div>
+          </motion.div>
         )}
 
         {/* Manual override */}
@@ -606,6 +680,7 @@ function SubmitComplaintContent() {
   const [aiCategory, setAiCategory] = useState('');
   const [aiConfidence, setAiConfidence] = useState(null);
   const [aiError, setAiError] = useState(null);
+  const [isCategoryManuallySet, setIsCategoryManuallySet] = useState(false); // Track manual override
 
   // 4-step config
   const steps = [
@@ -651,18 +726,25 @@ function SubmitComplaintContent() {
   const canProceed = useCallback(() => {
     switch (currentStep) {
       case 0: return !!image;
-      case 1: return !!aiCategory;
+      case 1: {
+        // Block if AI predicted "Other" and user hasn't manually changed it
+        if (aiCategory === 'Other' && !isCategoryManuallySet) {
+          return false;
+        }
+        return !!aiCategory;
+      }
       case 2: return !!(location?.latitude && location?.longitude);
       case 3: return true;
       default: return false;
     }
-  }, [currentStep, image, aiCategory, location]);
+  }, [currentStep, image, aiCategory, location, isCategoryManuallySet]);
 
   // ── AI runner
   const runClassification = useCallback(async () => {
     if (!imageBlob) return;
     setIsClassifying(true);
     setAiError(null);
+    setIsCategoryManuallySet(false); // Reset manual flag when AI runs
     try {
       const result = await callClassifyAPI(imageBlob);
       setAiCategory(result.predicted_category);
@@ -671,7 +753,7 @@ function SubmitComplaintContent() {
       console.error('AI error:', err);
       setAiError(err.message || t('ai_classification_failed', 'Classification failed'));
       // Still set a fallback so user can override
-      setAiCategory('other');
+      setAiCategory('Other');
       setAiConfidence(0);
     } finally {
       setIsClassifying(false);
@@ -698,13 +780,19 @@ function SubmitComplaintContent() {
       setAiCategory('');
       setAiConfidence(null);
       setAiError(null);
+      setIsCategoryManuallySet(false);
     }
     setCurrentStep(prev => Math.max(prev - 1, 0));
   };
 
   const goToStep = (step) => {
     if (step >= currentStep) return;
-    if (step < 1) { setAiCategory(''); setAiConfidence(null); setAiError(null); }
+    if (step < 1) { 
+      setAiCategory(''); 
+      setAiConfidence(null); 
+      setAiError(null);
+      setIsCategoryManuallySet(false);
+    }
     setCurrentStep(step);
   };
 
@@ -796,6 +884,7 @@ function SubmitComplaintContent() {
           complaintId={submittedComplaintId}
           trackingUrl={`${window.location.origin}/track/${submittedComplaintId}`}
           estimatedTime={t('estimated_3_5_days', '3–5 working days')}
+          onTrackStatus={() => navigate(`/track/${submittedComplaintId}`)}
           onNewComplaint={() => {
             setSubmittedComplaintId(null);
             setImage(null); setImageBlob(null); setLocation(null);
@@ -880,7 +969,13 @@ function SubmitComplaintContent() {
                   aiResult={aiCategory ? { predicted_category: aiCategory, confidence: aiConfidence, raw_label: null } : null}
                   aiError={aiError}
                   onRetry={runClassification}
-                  onOverride={(cat) => { setAiCategory(cat); setAiError(null); }}
+                  onOverride={(cat) => { 
+                    setAiCategory(cat); 
+                    setAiError(null);
+                    setIsCategoryManuallySet(true); // Mark as manually set
+                  }}
+                  isOtherCategory={aiCategory === 'Other'}
+                  isCategoryManuallySet={isCategoryManuallySet}
                 />
               )}
               {currentStep === 2 && (
@@ -925,11 +1020,15 @@ function SubmitComplaintContent() {
             </button>
           )}
 
-          {/* Step 1: Continue after AI */}
+          {/* Step 1: Continue after AI - Only if not "Other" or manually changed */}
           {currentStep === 1 && !isClassifying && aiCategory && (
             <button
               onClick={() => setCurrentStep(2)}
-              className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition bg-primary-600 text-white hover:bg-primary-700"
+              disabled={!canProceed()}
+              className={`w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition
+                ${canProceed()
+                  ? 'bg-primary-600 text-white hover:bg-primary-700'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
             >
               {t('continue', 'Continue')}
               <ArrowRightIcon className="w-5 h-5" />
