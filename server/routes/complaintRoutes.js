@@ -31,11 +31,15 @@ router.post(
       .notEmpty()
       .withMessage('Category is required')
       .isIn([
-        'DamagedRoads', 'ElectricityIssues', 'GarbageAndSanitation'
-        // 'road_damage', 'street_light', 'water_supply', 'sewage', 'garbage',
-        // 'encroachment', 'noise_pollution', 'illegal_construction', 'traffic',
-        // 'roads', 'water', 'electricity', 'sanitation', 'public_safety', 
-        // 'environment', 'transportation', 'healthcare', 'education', 'other'
+        // Current categories
+        'Damaged Road Issue', 'Fallen Trees', 'Garbage and Trash Issue',
+        'Illegal Drawing on Walls', 'Street Light Issue', 'Other',
+        // Legacy categories (backward compatibility)
+        'DamagedRoads', 'ElectricityIssues', 'GarbageAndSanitation',
+        'road_damage', 'street_light', 'water_supply', 'sewage', 'garbage',
+        'encroachment', 'noise_pollution', 'illegal_construction', 'traffic',
+        'roads', 'water', 'electricity', 'sanitation', 'public_safety', 
+        'environment', 'transportation', 'healthcare', 'education', 'other'
       ])
       .withMessage('Invalid category'),
     body('latitude')

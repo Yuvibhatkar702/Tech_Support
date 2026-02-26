@@ -24,13 +24,16 @@ const CLASSIFIER_URL = process.env.AI_CLASSIFIER_URL || 'http://localhost:8000';
 const TIMEOUT_MS     = 15000; // 15 seconds
 
 const VALID_CATEGORIES = new Set([
-  'DamagedRoads',
-  'ElectricityIssues',
-  'GarbageAndSanitation',
+  'Damaged Road Issue',
+  'Fallen Trees',
+  'Garbage and Trash Issue',
+  'Illegal Drawing on Walls',
+  'Street Light Issue',
+  'Other',
 ]);
 
 // Default fallback category when classification fails (must be in VALID_CATEGORIES)
-const DEFAULT_CATEGORY = 'DamagedRoads';
+const DEFAULT_CATEGORY = 'Other';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

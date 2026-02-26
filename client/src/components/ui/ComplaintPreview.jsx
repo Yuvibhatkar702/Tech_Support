@@ -52,6 +52,17 @@ export default function ComplaintPreview({
   }, [location]);
 
   const categoryIcons = {
+    // New categories
+    "Damaged Road Issue": '🛣️',
+    "Fallen Trees": '🌳',
+    "Garbage and Trash Issue": '🗑️',
+    "Illegal Drawing on Walls": '🎨',
+    "Street Light Issue": '💡',
+    "Other": '📋',
+    // Legacy categories (for backward compatibility with old data)
+    DamagedRoads: '🛣️',
+    ElectricityIssues: '💡',
+    GarbageAndSanitation: '🗑️',
     roads: '🛣️',
     water: '💧',
     electricity: '⚡',
@@ -62,6 +73,23 @@ export default function ComplaintPreview({
     healthcare: '🏥',
     education: '📚',
     other: '📋',
+  };
+
+  const categoryLabels = {
+    "Damaged Road Issue": 'Damaged Road Issue',
+    "Fallen Trees": 'Fallen Trees',
+    "Garbage and Trash Issue": 'Garbage and Trash Issue',
+    "Illegal Drawing on Walls": 'Illegal Drawing on Walls',
+    "Street Light Issue": 'Street Light Issue',
+    "Other": 'Other',
+    // Legacy
+    DamagedRoads: 'Damaged Roads',
+    ElectricityIssues: 'Electricity Issues',
+    GarbageAndSanitation: 'Garbage & Sanitation',
+  };
+
+  const getCategoryLabel = (cat) => {
+    return categoryLabels[cat] || t(`categories.${cat}`, cat.replace(/_/g, ' '));
   };
 
   return (
@@ -178,7 +206,7 @@ export default function ComplaintPreview({
                   </span>
                 )}
               </div>
-              <p className="font-medium text-gray-900">{t(`categories.${category}`)}</p>
+              <p className="font-medium text-gray-900">{getCategoryLabel(category)}</p>
               {showAICategory && aiConfidence !== null && (
                 <p className="text-xs text-primary-600 mt-0.5">
                   {Math.round(aiConfidence * 100)}% {t('confidence')}
@@ -232,9 +260,44 @@ export function CompactComplaintPreview({ image, category, address, className = 
   const { t } = useTranslation();
   
   const categoryIcons = {
-    roads: '🛣️', water: '💧', electricity: '⚡', sanitation: '🧹',
-    public_safety: '🚨', environment: '🌳', transportation: '🚌',
-    healthcare: '🏥', education: '📚', other: '📋',
+    // New categories
+    "Damaged Road Issue": '🛣️',
+    "Fallen Trees": '🌳',
+    "Garbage and Trash Issue": '🗑️',
+    "Illegal Drawing on Walls": '🎨',
+    "Street Light Issue": '💡',
+    "Other": '📋',
+    // Legacy categories
+    DamagedRoads: '🛣️',
+    ElectricityIssues: '💡',
+    GarbageAndSanitation: '🗑️',
+    roads: '🛣️', 
+    water: '💧', 
+    electricity: '⚡', 
+    sanitation: '🧹',
+    public_safety: '🚨', 
+    environment: '🌳', 
+    transportation: '🚌',
+    healthcare: '🏥', 
+    education: '📚', 
+    other: '📋',
+  };
+
+  const categoryLabels = {
+    "Damaged Road Issue": 'Damaged Road Issue',
+    "Fallen Trees": 'Fallen Trees',
+    "Garbage and Trash Issue": 'Garbage and Trash Issue',
+    "Illegal Drawing on Walls": 'Illegal Drawing on Walls',
+    "Street Light Issue": 'Street Light Issue',
+    "Other": 'Other',
+    // Legacy
+    DamagedRoads: 'Damaged Roads',
+    ElectricityIssues: 'Electricity Issues',
+    GarbageAndSanitation: 'Garbage & Sanitation',
+  };
+
+  const getCategoryLabel = (cat) => {
+    return categoryLabels[cat] || t(`categories.${cat}`, cat.replace(/_/g, ' '));
   };
 
   return (
@@ -248,7 +311,7 @@ export function CompactComplaintPreview({ image, category, address, className = 
         <div className="flex items-center gap-2">
           <span>{categoryIcons[category] || '📋'}</span>
           <span className="font-medium text-gray-900 text-sm">
-            {t(`categories.${category}`)}
+            {getCategoryLabel(category)}
           </span>
         </div>
         {address && (
