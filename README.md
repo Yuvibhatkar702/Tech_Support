@@ -9,6 +9,8 @@
 - Road & Garbage Dataset: https://data.mendeley.com/datasets/zndzygc3p3/2
 - Street Light Dataset (Electricity Issues): https://github.com/Team16Project/Street-Light-Dataset
 
+Or you can use the following dataset made by me: https://www.kaggle.com/datasets/shloksonkusare2/municipal-social-issues-dataset/data
+
 #### Directory Structure
 - Arrange the dataset properly in the following structure
 ```
@@ -26,7 +28,17 @@ ai_model/
 - To add the classes, simply add the folder as a new class in the dataset folder and add images in it.
 
 
-## How to Run the Project
+## How to Run the Project (all modules concurrently)
+
+**Make sure the .env file present in the server folder has all the necessary connection string mentioned before running the following commands**
+
+Open the Powershell terminal in the root directory and type the follwoing command:
+```
+npm run dev
+```
+The project will be running live locally on `5173` port.
+
+## How to Run the Project (Starting each module seperately)
 
 #### 1. How to start the AIML Backend
 1. Create the virtual environment and activate it in the ```ai_model``` folder using the following commands (in Windows)
@@ -85,3 +97,4 @@ cp .env.example .env
 - Example of connection string 
 ```
 MONGO_URI=mongodb+srv://ComplaintAdmin:ComplaintAdmin123@firstcluster.i53fjue.mongodb.net/ComplaintRegistration?retryWrites=true&w=majority
+```
