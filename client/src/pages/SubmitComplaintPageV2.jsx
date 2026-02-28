@@ -75,6 +75,8 @@ export default function SubmitComplaintPageV2() {
   // Form
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
 
   // Duplicates
   const [duplicates, setDuplicates] = useState([]);
@@ -121,6 +123,42 @@ export default function SubmitComplaintPageV2() {
       saveDraftComplaint({ capturedImage, location, address, category, description });
     }
   }, [capturedImage, location, address, category, description]);
+
+  // Initialize speech recognition for voice-to-text
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-IN';
+
+      recognitionRef.current.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        setDescription((prev) => (prev + ' ' + transcript).trim());
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
+  }, []);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const handleConsent = () => {
     setHasConsent(true);
@@ -471,7 +509,24 @@ export default function SubmitComplaintPageV2() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{t('form.description', 'Description')} ({t('form.optional', 'optional')})</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder={t('form.description_placeholder', 'Additional details...')} className="w-full rounded-xl border-gray-300" />
+                <div className="relative">
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder={t('form.description_placeholder', 'Additional details...')} className="w-full rounded-xl border-gray-300 pr-12" />
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`absolute right-3 top-2 p-2 rounded-full transition-colors ${
+                      isListening
+                        ? 'bg-red-100 text-red-600 animate-pulse'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    title={isListening ? 'Stop recording' : 'Start voice input'}
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
+                </div>
+                {isListening && <p className="text-xs text-red-500 mt-1">🎤 Listening...</p>}
               </div>
 
               <div className="flex gap-3">

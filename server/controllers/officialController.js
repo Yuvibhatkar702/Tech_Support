@@ -168,6 +168,23 @@ exports.officialLogin = async (req, res) => {
   }
 };
 
+// ─── OFFICIAL: Get own profile (verify token is still valid) ────────
+exports.getOfficialProfile = async (req, res) => {
+  try {
+    // req.admin is populated by auth middleware if token is valid
+    const official = req.admin;
+    res.json({
+      success: true,
+      data: {
+        official: official.toJSON(),
+      },
+    });
+  } catch (error) {
+    console.error('Get official profile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get profile' });
+  }
+};
+
 // ─── Get all officers of a department (for dept head) ──────────────
 exports.getDepartmentOfficers = async (req, res) => {
   try {

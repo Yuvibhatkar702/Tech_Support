@@ -12,7 +12,7 @@
  *     manually override the AI prediction if needed.
  */
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import CameraCapture from '../components/CameraCapture';
@@ -52,6 +52,45 @@ export default function SubmitComplaintPage() {
   // The category returned by the server after submission
   const [predictedCategory, setPredictedCategory] = useState(null);
   const [categorySource, setCategorySource]         = useState(null);
+  // Voice-to-text
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-IN';
+
+      recognitionRef.current.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        setDescription((prev) => (prev + ' ' + transcript).trim());
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
+  }, [setDescription]);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   // ── Step 1: Capture Photo ────────────────────────────────────────────────
   const handleImageCapture = (imageData, blob) => {
@@ -327,13 +366,30 @@ export default function SubmitComplaintPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {t('field_description')}
               </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('field_description_placeholder')}
-                rows={3}
-                className="w-full resize-none"
-              />
+              <div className="relative">
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t('field_description_placeholder')}
+                  rows={3}
+                  className="w-full resize-none pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  className={`absolute right-3 top-2 p-2 rounded-full transition-colors ${
+                    isListening
+                      ? 'bg-red-100 text-red-600 animate-pulse'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  title={isListening ? 'Stop recording' : 'Start voice input'}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </button>
+              </div>
+              {isListening && <p className="text-xs text-red-500 mt-1">🎤 Listening...</p>}
             </div>
 
             {/* Next button — only phone required now */}

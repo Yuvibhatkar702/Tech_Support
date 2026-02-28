@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +17,10 @@ import {
   ExclamationTriangleIcon,
   StarIcon,
   PhotoIcon,
-  ArrowUturnLeftIcon
+  ArrowUturnLeftIcon,
+  MicrophoneIcon,
+  XMarkIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { complaintApi } from '../services/api';
@@ -345,6 +348,12 @@ export default function EnhancedTrackComplaintPage() {
   const [showReopenForm, setShowReopenForm] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenLoading, setReopenLoading] = useState(false);
+  const [reopenImage, setReopenImage] = useState(null);
+  const [reopenImagePreview, setReopenImagePreview] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const [activeVoiceField, setActiveVoiceField] = useState(null); // 'reopen' or 'rating'
+  const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Rating state
   const [showRatingForm, setShowRatingForm] = useState(false);
@@ -352,6 +361,67 @@ export default function EnhancedTrackComplaintPage() {
   const [ratingHover, setRatingHover] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
   const [ratingLoading, setRatingLoading] = useState(false);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-IN';
+
+      recognitionRef.current.onerror = () => { setIsListening(false); setActiveVoiceField(null); };
+      recognitionRef.current.onend = () => { setIsListening(false); setActiveVoiceField(null); };
+    }
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
+  }, []);
+
+  const toggleVoice = (field) => {
+    if (!recognitionRef.current) return;
+    if (isListening && activeVoiceField === field) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      setActiveVoiceField(null);
+    } else {
+      // Stop any current recording first
+      if (isListening) recognitionRef.current.stop();
+      
+      // Set new onresult handler based on field
+      recognitionRef.current.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        if (field === 'reopen') {
+          setReopenReason((prev) => (prev + ' ' + transcript).trim());
+        } else if (field === 'rating') {
+          setRatingComment((prev) => (prev + ' ' + transcript).trim());
+        }
+      };
+      
+      recognitionRef.current.start();
+      setIsListening(true);
+      setActiveVoiceField(field);
+    }
+  };
+
+  const handleReopenImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReopenImage(file);
+      setReopenImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeReopenImage = () => {
+    setReopenImage(null);
+    if (reopenImagePreview) URL.revokeObjectURL(reopenImagePreview);
+    setReopenImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     if (urlComplaintId) {
@@ -417,11 +487,12 @@ export default function EnhancedTrackComplaintPage() {
     }
     setReopenLoading(true);
     try {
-      const result = await complaintApi.reopenComplaint(complaint.complaintId, reopenReason.trim());
+      const result = await complaintApi.reopenComplaint(complaint.complaintId, reopenReason.trim(), null, reopenImage);
       if (result.success) {
         addToast(result.message || 'Complaint reopened', 'success');
         setShowReopenForm(false);
         setReopenReason('');
+        removeReopenImage();
         fetchComplaint(complaint.complaintId);
       }
     } catch (err) {
@@ -762,13 +833,30 @@ export default function EnhancedTrackComplaintPage() {
                               <span className="ml-2 text-sm font-medium text-green-800">{ratingValue}/5</span>
                             )}
                           </div>
-                          <textarea
-                            value={ratingComment}
-                            onChange={(e) => setRatingComment(e.target.value)}
-                            placeholder="Optional: Leave a comment about the officer's service..."
-                            rows={2}
-                            className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                          />
+                          <div className="relative">
+                            <textarea
+                              value={ratingComment}
+                              onChange={(e) => setRatingComment(e.target.value)}
+                              placeholder="Optional: Leave a comment about the officer's service..."
+                              rows={2}
+                              className="w-full px-3 py-2 pr-12 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleVoice('rating')}
+                              className={`absolute right-3 top-2 p-2 rounded-full transition-colors ${
+                                isListening && activeVoiceField === 'rating'
+                                  ? 'bg-red-100 text-red-600 animate-pulse'
+                                  : 'bg-green-100 text-green-600 hover:bg-green-200'
+                              }`}
+                              title={isListening && activeVoiceField === 'rating' ? 'Stop recording' : 'Start voice input'}
+                            >
+                              <MicrophoneIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                          {isListening && activeVoiceField === 'rating' && (
+                            <p className="text-xs text-red-500">🎤 Listening...</p>
+                          )}
                           <div className="flex gap-2">
                             <button
                               onClick={() => setShowRatingForm(false)}
@@ -802,17 +890,75 @@ export default function EnhancedTrackComplaintPage() {
                           <p className="text-sm font-medium text-orange-900">
                             Why are you not satisfied? (Reopen {(complaint.reopenCount || 0) + 1}/3)
                           </p>
-                          <textarea
-                            value={reopenReason}
-                            onChange={(e) => setReopenReason(e.target.value)}
-                            placeholder="Explain why the issue is not resolved..."
-                            rows={3}
-                            className="w-full px-3 py-2 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                            required
-                          />
+                          
+                          {/* Description with voice-to-text */}
+                          <div className="relative">
+                            <textarea
+                              value={reopenReason}
+                              onChange={(e) => setReopenReason(e.target.value)}
+                              placeholder="Explain why the issue is not resolved..."
+                              rows={3}
+                              className="w-full px-3 py-2 pr-12 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                              required
+                            />
+                            {/* Voice-to-text button */}
+                            <button
+                              type="button"
+                              onClick={() => toggleVoice('reopen')}
+                              className={`absolute right-3 top-2 p-2 rounded-full transition-colors ${
+                                isListening && activeVoiceField === 'reopen'
+                                  ? 'bg-red-100 text-red-600 animate-pulse'
+                                  : 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                              }`}
+                              title={isListening && activeVoiceField === 'reopen' ? 'Stop recording' : 'Start voice input'}
+                            >
+                              <MicrophoneIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                          {isListening && activeVoiceField === 'reopen' && (
+                            <p className="text-xs text-red-500">🎤 Listening...</p>
+                          )}
+
+                          {/* Image Upload */}
+                          <div className="space-y-2">
+                            <p className="text-xs text-orange-700">Add latest proof image (optional)</p>
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              accept="image/*"
+                              onChange={handleReopenImageChange}
+                              className="hidden"
+                            />
+                            {!reopenImagePreview ? (
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full py-3 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-100 transition flex items-center justify-center gap-2 text-sm"
+                              >
+                                <CameraIcon className="w-5 h-5" />
+                                Add Photo
+                              </button>
+                            ) : (
+                              <div className="relative">
+                                <img
+                                  src={reopenImagePreview}
+                                  alt="Reopen proof"
+                                  className="w-full h-32 object-cover rounded-lg"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={removeReopenImage}
+                                  className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="flex gap-2">
                             <button
-                              onClick={() => setShowReopenForm(false)}
+                              onClick={() => { setShowReopenForm(false); removeReopenImage(); }}
                               className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 text-sm transition"
                             >
                               Cancel

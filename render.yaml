@@ -16,7 +16,7 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: CLIENT_URL
         fromService:
           name: grievance-portal-client

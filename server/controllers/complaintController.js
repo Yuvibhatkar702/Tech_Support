@@ -962,10 +962,21 @@ exports.reopenComplaint = async (req, res) => {
     complaint.reopenReason = reason.trim();
     complaint.reopenedAt = new Date();
     complaint.reopenCount = (complaint.reopenCount || 0) + 1;
+
+    // Handle reopen proof image if uploaded
+    if (req.file) {
+      complaint.reopenProof = complaint.reopenProof || [];
+      complaint.reopenProof.push({
+        fileName: req.file.filename,
+        filePath: req.file.path.replace(/\\/g, '/'),
+        uploadedAt: new Date(),
+      });
+    }
+
     complaint.statusHistory.push({
       status: 'reopened',
       changedAt: new Date(),
-      remarks: `Reopened by citizen: ${reason.trim()}`,
+      remarks: `Reopened by citizen: ${reason.trim()}${req.file ? ' (with proof image)' : ''}`,
     });
 
     // Reset back to assigned status so officer can rework

@@ -114,6 +114,23 @@ export default function AdminDashboardV2() {
     if (!isAuthenticated) navigate('/admin/login');
   }, [isAuthenticated, navigate]);
 
+  // Verify session on mount to handle token expiry
+  useEffect(() => {
+    const verifySession = async () => {
+      if (!isAuthenticated) return;
+      try {
+        await adminApi.getProfile();
+      } catch (error) {
+        if (error.response?.status === 401) {
+          console.warn('Admin session expired. Logging out...');
+          logout();
+          navigate('/admin/login');
+        }
+      }
+    };
+    verifySession();
+  }, [isAuthenticated, logout, navigate]);
+
   const fetchStats = useCallback(async () => {
     try {
       const result = await adminApi.getStats();

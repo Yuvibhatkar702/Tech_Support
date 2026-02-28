@@ -34,12 +34,25 @@ api.interceptors.request.use(
 );
 
 // Response interceptor to handle errors
-// NOTE: We do NOT auto-logout/redirect here. Each page handles its own 401
-// responses so the correct store is cleared and the correct login page is shown.
+// Handle 401 errors to auto-logout stale sessions
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Just propagate – individual pages decide what to do on 401
+    // On 401 (Unauthorized), the JWT might have expired or become invalid
+    // Clear both stores to force re-login
+    if (error.response?.status === 401) {
+      const message = error.response?.data?.message || '';
+      // Only auto-clear if it's a token issue (not just wrong password on login)
+      if (message.includes('expired') || message.includes('Invalid token') || message.includes('Access denied')) {
+        console.warn('Session expired or invalid token - clearing auth stores');
+        // Don't clear during login attempts
+        const url = error.config?.url || '';
+        if (!url.includes('/login')) {
+          useAuthStore.getState().logout();
+          useOfficialStore.getState().logout();
+        }
+      }
+    }
     return Promise.reject(error);
   }
 );
@@ -96,10 +109,14 @@ export const complaintApi = {
   },
 
   // Reopen a resolved complaint (public)
-  reopenComplaint: async (complaintId, reason, phone) => {
-    const response = await api.post(`/complaints/status/${complaintId}/reopen`, {
-      reason,
-      phone: phone || undefined,
+  reopenComplaint: async (complaintId, reason, phone, imageFile) => {
+    const formData = new FormData();
+    formData.append('reason', reason);
+    if (phone) formData.append('phone', phone);
+    if (imageFile) formData.append('reopenImage', imageFile);
+    
+    const response = await api.post(`/complaints/status/${complaintId}/reopen`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },
@@ -415,6 +432,12 @@ export const officialApi = {
   // Official login (email + password)
   login: async (email, password) => {
     const response = await api.post('/officials/login', { email, password });
+    return response.data;
+  },
+
+  // Get own profile (verify token validity)
+  getProfile: async () => {
+    const response = await api.get('/officials/profile');
     return response.data;
   },
 

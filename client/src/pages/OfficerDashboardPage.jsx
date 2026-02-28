@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOfficialStore, useToastStore } from '../store';
 import { officialApi } from '../services/api';
+import { MicrophoneIcon } from '@heroicons/react/24/outline';
 
 // ─── Status badge ───────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -9,11 +10,15 @@ function StatusBadge({ status }) {
     assigned: 'bg-blue-100 text-blue-800',
     in_progress: 'bg-indigo-100 text-indigo-800',
     resolved: 'bg-green-100 text-green-800',
+    closed: 'bg-gray-100 text-gray-800',
+    reopened: 'bg-orange-100 text-orange-800',
   };
   const labels = {
     assigned: 'Assigned',
     in_progress: 'In Progress',
     resolved: 'Resolved',
+    closed: 'Closed',
+    reopened: 'Reopened',
   };
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-600'}`}>
@@ -65,6 +70,67 @@ export default function OfficerDashboardPage() {
   const [resolveFiles, setResolveFiles] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-IN';
+
+      recognitionRef.current.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        setResolveRemarks((prev) => (prev + ' ' + transcript).trim());
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
+  }, []);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  // Verify session is valid on mount (handles cases where server restarted with new JWT secret)
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await officialApi.getProfile();
+        // Update official in store with fresh data from server
+        if (res.success && res.data.official) {
+          // The store already has login, we just verified it's still valid
+        }
+      } catch (error) {
+        console.error('Session verification failed:', error);
+        if (error.response?.status === 401) {
+          addToast('Session expired. Please login again.', 'warning');
+          logout();
+          navigate('/official-login');
+        }
+      }
+    };
+    if (isAuthenticated) {
+      verifySession();
+    }
+  }, [isAuthenticated, logout, navigate, addToast]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -208,16 +274,32 @@ export default function OfficerDashboardPage() {
             <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">No complaints found</div>
           ) : (
             complaints.map((c) => {
-              const rawPath = c.image?.filePath || c.images?.[0]?.filePath || '';
+              // If complaint was reopened and has reopen proof, show that instead of original
+              const hasReopenProof = c.reopenCount > 0 && c.reopenProof?.length > 0;
+              const latestReopenProof = hasReopenProof ? c.reopenProof[c.reopenProof.length - 1] : null;
+              
+              const rawPath = latestReopenProof?.filePath || c.image?.filePath || c.images?.[0]?.filePath || '';
               const imgSrc = rawPath
                 ? `${API_BASE}/${rawPath.replace(/\\/g, '/')}`
                 : null;
+              
+              // Show reopen reason if reopened, otherwise original description
+              const displayDescription = c.reopenCount > 0 && c.reopenReason 
+                ? c.reopenReason 
+                : c.description;
+              const isReopened = c.reopenCount > 0;
+              
               return (
               <div key={c._id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm font-bold text-gray-900">{c.complaintId}</span>
                     <StatusBadge status={c.status} />
+                    {isReopened && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        Reopened {c.reopenCount}x
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Countdown countdown={c.countdown} />
@@ -226,22 +308,34 @@ export default function OfficerDashboardPage() {
                 </div>
 
                 <div className="flex gap-4 mb-3">
-                  {/* Image thumbnail */}
+                  {/* Image thumbnail - show reopen proof if available */}
                   {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt="complaint"
-                      className="w-24 h-24 rounded-lg object-cover cursor-pointer border flex-shrink-0 hover:opacity-80"
-                      onClick={() => setImagePreview(imgSrc)}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={imgSrc}
+                        alt="complaint"
+                        className="w-24 h-24 rounded-lg object-cover cursor-pointer border hover:opacity-80"
+                        onClick={() => setImagePreview(imgSrc)}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      {hasReopenProof && (
+                        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-xs rounded-full">New</span>
+                      )}
+                    </div>
                   ) : (
                     <div className="w-24 h-24 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-300 text-xs border">No image</div>
                   )}
                   <div className="flex-1 min-w-0 space-y-1">
                     <p className="text-sm text-gray-700"><strong>Category:</strong> {c.category}</p>
                     <p className="text-sm text-gray-700"><strong>Phone:</strong> {c.user?.phoneNumber || '—'}</p>
-                    {c.description && <p className="text-sm text-gray-600">{c.description}</p>}
+                    {displayDescription && (
+                      <div>
+                        {isReopened && (
+                          <span className="text-xs font-medium text-orange-600 mr-1">Reopen reason:</span>
+                        )}
+                        <p className={`text-sm ${isReopened ? 'text-orange-700' : 'text-gray-600'}`}>{displayDescription}</p>
+                      </div>
+                    )}
                     {c.address?.fullAddress && <p className="text-xs text-gray-400">{c.address.fullAddress}</p>}
                   </div>
                 </div>
@@ -318,13 +412,28 @@ export default function OfficerDashboardPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Resolution Remarks</label>
-                <textarea
-                  value={resolveRemarks}
-                  onChange={(e) => setResolveRemarks(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Describe the resolution…"
-                />
+                <div className="relative">
+                  <textarea
+                    value={resolveRemarks}
+                    onChange={(e) => setResolveRemarks(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 pr-12 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Describe the resolution…"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`absolute right-3 top-2 p-2 rounded-full transition-colors ${
+                      isListening
+                        ? 'bg-red-100 text-red-600 animate-pulse'
+                        : 'bg-green-100 text-green-600 hover:bg-green-200'
+                    }`}
+                    title={isListening ? 'Stop recording' : 'Start voice input'}
+                  >
+                    <MicrophoneIcon className="w-5 h-5" />
+                  </button>
+                </div>
+                {isListening && <p className="text-xs text-red-500 mt-1">🎤 Listening...</p>}
               </div>
 
               <div>

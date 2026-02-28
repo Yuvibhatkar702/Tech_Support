@@ -564,6 +564,44 @@ function AIClassificationStep({ image, isClassifying, aiResult, aiError, onRetry
 // ─────────────────────────────────────────────────────────────────────────────
 function LocationDetailsStep({ location, description, onLocationUpdate, onDescriptionChange }) {
   const { t } = useTranslation();
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-IN';
+
+      recognitionRef.current.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + ' ';
+        }
+        onDescriptionChange((prev) => (prev + ' ' + transcript).trim());
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
+  }, [onDescriptionChange]);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -595,21 +633,43 @@ function LocationDetailsStep({ location, description, onLocationUpdate, onDescri
       {/* Description */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('additional_details', 'Additional Details')}
-          <span className="text-gray-400 font-normal ml-1">({t('optional', 'optional')})</span>
+          {t('description', 'Description')}
+          <span className="text-red-500 ml-1">*</span>
         </label>
-        <textarea
-          value={description}
-          onChange={e => onDescriptionChange(e.target.value)}
-          rows={3}
-          maxLength={500}
-          placeholder={t(
-            'description_placeholder',
-            'Describe the issue in more detail… (e.g. size, duration, severity)'
-          )}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm"
-        />
-        <p className="text-xs text-gray-400 mt-1 text-right">{description.length}/500</p>
+        <div className="relative">
+          <textarea
+            value={description}
+            onChange={e => onDescriptionChange(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder={t(
+              'description_placeholder',
+              'Describe the issue in more detail… (e.g. size, duration, severity)'
+            )}
+            className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm"
+          />
+          {/* Voice-to-text button */}
+          <button
+            type="button"
+            onClick={toggleVoice}
+            className={`absolute right-3 top-3 p-2 rounded-full transition-colors ${
+              isListening
+                ? 'bg-red-100 text-red-600 animate-pulse'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            title={isListening ? 'Stop recording' : 'Start voice input'}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex justify-between mt-1">
+          <p className="text-xs text-gray-400">
+            {isListening && <span className="text-red-500">🎤 Listening...</span>}
+          </p>
+          <p className="text-xs text-gray-400">{description.length}/500</p>
+        </div>
       </div>
     </div>
   );
@@ -753,19 +813,19 @@ function PhoneVerifyStep({ phoneNumber, setPhoneNumber, onVerified }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('phone_number', 'Phone Number')}
-            </label>
+              </label>
             <input
               type="tel"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+91 9876543210"
+              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              maxLength={10}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
             />
           </div>
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           <button
             onClick={handleRequestOTP}
-            disabled={loading || !phoneNumber || phoneNumber.length < 10}
+            disabled={loading || phoneNumber.length !== 10}
             className="w-full py-4 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
             {loading ? t('sending_otp', 'Sending OTP...') : t('get_otp', 'Get OTP')}
@@ -910,11 +970,11 @@ function SubmitComplaintContent() {
         }
         return !!aiCategory;
       }
-      case 3: return !!(location?.latitude && location?.longitude);
+      case 3: return !!(location?.latitude && location?.longitude) && description.trim().length > 0;
       case 4: return true;
       default: return false;
     }
-  }, [currentStep, image, aiCategory, location, isCategoryManuallySet, phoneVerified]);
+  }, [currentStep, image, aiCategory, location, isCategoryManuallySet, phoneVerified, description]);
 
   // ── AI runner
   const runClassification = useCallback(async () => {

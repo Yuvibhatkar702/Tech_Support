@@ -67,6 +67,25 @@ export default function DepartmentDashboardPage() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [selectedOfficer, setSelectedOfficer] = useState('');
 
+  // Verify session is valid on mount
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        await officialApi.getProfile();
+      } catch (error) {
+        console.error('Session verification failed:', error);
+        if (error.response?.status === 401) {
+          addToast('Session expired. Please login again.', 'warning');
+          logout();
+          navigate('/official-login');
+        }
+      }
+    };
+    if (isAuthenticated) {
+      verifySession();
+    }
+  }, [isAuthenticated, logout, navigate, addToast]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {

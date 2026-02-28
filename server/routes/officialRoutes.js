@@ -18,6 +18,9 @@ router.post(
 // ─── All routes below require authentication ────────────────────────
 router.use(auth);
 
+// ─── OFFICIAL: Get own profile (verify token validity) ──────────────
+router.get('/profile', officialController.getOfficialProfile);
+
 // ─── ADMIN: Create department head ──────────────────────────────────
 router.post(
   '/department-heads',

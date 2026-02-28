@@ -590,6 +590,23 @@ export default function EnhancedAdminDashboardPage() {
     requestNotificationPermission();
   }, []);
 
+  // Verify session on mount to handle token expiry
+  useEffect(() => {
+    const verifySession = async () => {
+      if (!isAuthenticated) return;
+      try {
+        await adminApi.getProfile();
+      } catch (error) {
+        if (error.response?.status === 401) {
+          console.warn('Admin session expired. Logging out...');
+          logout();
+          navigate('/admin/login');
+        }
+      }
+    };
+    verifySession();
+  }, [isAuthenticated, logout, navigate]);
+
   // State
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState(null);

@@ -183,6 +183,14 @@ const complaintSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  reopenProof: [{
+    fileName: String,
+    filePath: String,
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
 
   // Officer rating (given by citizen after resolution)
   officerRating: {

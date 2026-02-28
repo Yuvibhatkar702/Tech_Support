@@ -101,6 +101,7 @@ router.get(
 // Reopen a resolved complaint (public)
 router.post(
   '/status/:complaintId/reopen',
+  upload.single('reopenImage'),
   [
     param('complaintId').notEmpty().withMessage('Complaint ID is required'),
     body('reason').notEmpty().withMessage('Reopen reason is required').isLength({ max: 500 }),
