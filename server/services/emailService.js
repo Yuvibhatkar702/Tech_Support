@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const config = require('../config');
 
 // Create transporter (configure based on your email provider)
 const transporter = nodemailer.createTransport({
@@ -84,7 +85,7 @@ const sendStatusUpdateEmail = async (email, complaint, previousStatus, newStatus
   const statusColors = {
     pending: '#f59e0b',
     in_progress: '#3b82f6',
-    resolved: '#10b981',
+    closed: '#10b981',
     rejected: '#ef4444',
     duplicate: '#6b7280',
   };
@@ -92,7 +93,7 @@ const sendStatusUpdateEmail = async (email, complaint, previousStatus, newStatus
   const statusLabels = {
     pending: 'Pending',
     in_progress: 'In Progress',
-    resolved: 'Resolved',
+    closed: 'Closed',
     rejected: 'Rejected',
     duplicate: 'Duplicate',
   };
@@ -149,7 +150,7 @@ const sendStatusUpdateEmail = async (email, complaint, previousStatus, newStatus
               ` : ''}
             </div>
             <center>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/track?id=${complaint.complaintId}" class="btn">
+              <a href="${config.clientUrl}/track?id=${complaint.complaintId}" class="btn">
                 Track Your Complaint
               </a>
             </center>
@@ -206,7 +207,7 @@ const sendEscalationEmail = async (adminEmail, complaint, escalationLevel) => {
               <p><strong>Days Pending:</strong> ${Math.floor((Date.now() - new Date(complaint.createdAt)) / (1000 * 60 * 60 * 24))} days</p>
             </div>
             <center>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/admin/complaints/${complaint._id}" class="btn">
+              <a href="${config.clientUrl}/admin/complaints/${complaint._id}" class="btn">
                 View Complaint
               </a>
             </center>

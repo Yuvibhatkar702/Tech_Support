@@ -74,14 +74,13 @@ export default function ProgressStepper({ currentStep, completedSteps = [] }) {
 export function TimelineStepper({ history, currentStatus }) {
   const { t } = useTranslation();
 
-  const statusOrder = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected', 'closed'];
+  const statusOrder = ['pending', 'assigned', 'in_progress', 'closed', 'rejected'];
   const statusColors = {
     pending: 'bg-yellow-500',
     assigned: 'bg-blue-400',
     in_progress: 'bg-blue-500',
-    resolved: 'bg-green-500',
+    closed: 'bg-green-500',
     rejected: 'bg-red-500',
-    closed: 'bg-gray-500',
   };
 
   return (
@@ -106,7 +105,7 @@ export function TimelineStepper({ history, currentStatus }) {
           <div className="flex-1 -mt-1">
             <div className="flex items-center justify-between mb-1">
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                entry.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                entry.status === 'closed' ? 'bg-green-100 text-green-700' :
                 entry.status === 'rejected' ? 'bg-red-100 text-red-700' :
                 entry.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                 'bg-gray-100 text-gray-700'

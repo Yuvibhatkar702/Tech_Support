@@ -114,7 +114,7 @@ router.patch(
   officialController.startWork
 );
 
-// ─── OFFICER: Resolve complaint ─────────────────────────────────────
+// ─── OFFICER: Close complaint ─────────────────────────────────────
 router.patch(
   '/complaints/:id/resolve',
   authorize('officer'),

@@ -9,15 +9,13 @@ function StatusBadge({ status }) {
     pending: 'bg-yellow-100 text-yellow-800',
     assigned: 'bg-blue-100 text-blue-800',
     in_progress: 'bg-indigo-100 text-indigo-800',
-    resolved: 'bg-green-100 text-green-800',
-    closed: 'bg-gray-100 text-gray-800',
+    closed: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
   };
   const labels = {
     pending: 'Pending',
     assigned: 'Assigned',
     in_progress: 'In Progress',
-    resolved: 'Resolved',
     closed: 'Closed',
     rejected: 'Rejected',
   };
@@ -164,7 +162,7 @@ export default function DepartmentDashboardPage() {
             <StatCard label="Pending" value={stats.pending} color="bg-yellow-50 text-yellow-900" />
             <StatCard label="Assigned" value={stats.assigned} color="bg-blue-50 text-blue-900" />
             <StatCard label="In Progress" value={stats.inProgress} color="bg-indigo-50 text-indigo-900" />
-            <StatCard label="Resolved" value={stats.resolved} color="bg-green-50 text-green-900" />
+            <StatCard label="Closed" value={stats.closed} color="bg-green-50 text-green-900" />
             <StatCard label="Overdue" value={stats.overdue} color="bg-red-50 text-red-900" />
           </div>
         )}
@@ -231,7 +229,7 @@ export default function DepartmentDashboardPage() {
         {/* Filters */}
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-600">Filter:</label>
-          {['', 'pending', 'assigned', 'in_progress', 'resolved'].map((s) => (
+          {['', 'pending', 'assigned', 'in_progress', 'closed'].map((s) => (
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setPage(1); }}
@@ -324,7 +322,7 @@ export default function DepartmentDashboardPage() {
                   </div>
 
                   {/* Resolution Proof */}
-                  {proofSrc && ['resolved', 'closed'].includes(c.status) && (
+                  {proofSrc && ['closed'].includes(c.status) && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
                       <p className="text-xs font-semibold text-green-700 mb-2">📷 Resolution Proof</p>
                       <div className="flex gap-2">

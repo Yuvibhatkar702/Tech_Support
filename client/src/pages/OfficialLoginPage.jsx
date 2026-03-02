@@ -30,10 +30,23 @@ export default function OfficialLoginPage() {
         // Also set in the admin auth store so existing auth middleware works
         adminLogin(official, token);
 
+        // ── Stamp session-activity clocks for the timeout guard ────
+        const now = Date.now().toString();
+        if (['super_admin', 'admin'].includes(official.role)) {
+          localStorage.setItem('adminSession', now);
+        }
+        if (['officer', 'department_head'].includes(official.role)) {
+          localStorage.setItem('officerSession', now);
+        }
+
         addToast(`Welcome, ${official.name}`, 'success');
 
         // Role-based redirect
         switch (official.role) {
+          case 'super_admin':
+          case 'admin':
+            navigate('/admin/dashboard');
+            break;
           case 'department_head':
             navigate('/department');
             break;

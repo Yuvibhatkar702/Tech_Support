@@ -88,6 +88,38 @@ router.get(
   complaintController.reverseGeocode
 );
 
+// ─── Track by Mobile Number (OTP-protected) ─────────────────────────
+
+// Send OTP for mobile-number tracking
+router.post(
+  '/track/send-otp',
+  [
+    body('phoneNumber')
+      .notEmpty()
+      .matches(/^[1-9]\d{9}$/)
+      .withMessage('Phone number must be exactly 10 digits'),
+  ],
+  validate,
+  complaintController.trackSendOTP
+);
+
+// Verify OTP and get all complaints for the number
+router.post(
+  '/track/verify-otp',
+  [
+    body('phoneNumber')
+      .notEmpty()
+      .matches(/^[1-9]\d{9}$/)
+      .withMessage('Phone number must be exactly 10 digits'),
+    body('otp')
+      .notEmpty()
+      .isLength({ min: 6, max: 6 })
+      .withMessage('OTP must be 6 digits'),
+  ],
+  validate,
+  complaintController.trackVerifyOTP
+);
+
 // Get complaint status (public, with phone verification)
 router.get(
   '/status/:complaintId',
@@ -98,7 +130,7 @@ router.get(
   complaintController.getComplaintStatus
 );
 
-// Reopen a resolved complaint (public)
+// Reopen a closed complaint (public)
 router.post(
   '/status/:complaintId/reopen',
   upload.single('reopenImage'),
@@ -181,7 +213,7 @@ router.patch(
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('status')
       .notEmpty()
-      .isIn(['pending', 'in_progress', 'resolved', 'rejected', 'duplicate'])
+      .isIn(['pending', 'in_progress', 'closed', 'rejected', 'duplicate'])
       .withMessage('Invalid status'),
     body('remarks').optional().isLength({ max: 500 }),
   ],
@@ -211,7 +243,7 @@ router.patch(
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('status')
       .optional()
-      .isIn(['pending', 'in_progress', 'resolved', 'rejected', 'duplicate'])
+      .isIn(['pending', 'in_progress', 'closed', 'rejected', 'duplicate'])
       .withMessage('Invalid status'),
     body('priority')
       .optional()

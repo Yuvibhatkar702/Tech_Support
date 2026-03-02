@@ -12,7 +12,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6b7280', '#8b5cf6'
 const STATUS_COLORS = {
   pending: '#f59e0b',
   in_progress: '#3b82f6',
-  resolved: '#10b981',
+  closed: '#10b981',
   rejected: '#ef4444',
   duplicate: '#6b7280',
 };
@@ -98,11 +98,11 @@ export default function AnalyticsDashboard() {
           change={stats?.totalChange}
         />
         <SummaryCard
-          title="Resolved"
-          value={stats?.byStatus?.resolved || 0}
+          title="Closed"
+          value={stats?.byStatus?.closed || 0}
           icon="✅"
           color="green"
-          change={stats?.resolvedChange}
+          change={stats?.closedChange}
         />
         <SummaryCard
           title="Pending"
@@ -174,7 +174,7 @@ export default function AnalyticsDashboard() {
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                 </linearGradient>
-                <linearGradient id="colorResolved" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorClosed" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                 </linearGradient>
@@ -185,7 +185,7 @@ export default function AnalyticsDashboard() {
               <Tooltip />
               <Legend />
               <Area type="monotone" dataKey="new" stroke="#3b82f6" fillOpacity={1} fill="url(#colorNew)" name="New" />
-              <Area type="monotone" dataKey="resolved" stroke="#10b981" fillOpacity={1} fill="url(#colorResolved)" name="Resolved" />
+              <Area type="monotone" dataKey="closed" stroke="#10b981" fillOpacity={1} fill="url(#colorClosed)" name="Closed" />
             </AreaChart>
           </ResponsiveContainer>
         </div>

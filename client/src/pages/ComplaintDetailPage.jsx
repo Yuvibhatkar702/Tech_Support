@@ -36,7 +36,7 @@ export default function ComplaintDetailPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/admin/login');
+      navigate('/official-login');
     }
   }, [isAuthenticated, navigate]);
 
@@ -279,7 +279,7 @@ export default function ComplaintDetailPage() {
                     <div key={index} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full ${
-                          entry.status === 'resolved' ? 'bg-green-500' :
+                          entry.status === 'closed' ? 'bg-green-500' :
                           entry.status === 'rejected' ? 'bg-red-500' :
                           entry.status === 'in_progress' ? 'bg-blue-500' :
                           'bg-gray-400'
@@ -418,9 +418,8 @@ export default function ComplaintDetailPage() {
                   <option value="pending">Pending</option>
                   <option value="assigned">Assigned</option>
                   <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="rejected">Rejected</option>
                   <option value="closed">Closed</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
 

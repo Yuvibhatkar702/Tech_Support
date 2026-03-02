@@ -27,12 +27,6 @@ export async function compressImage(file, options = {}) {
     // Create blob for upload
     const blob = new Blob([compressedFile], { type: compressedFile.type });
 
-    console.log('Image compression results:', {
-      originalSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-      compressedSize: `${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`,
-      compressionRatio: `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`,
-    });
-
     return {
       file: compressedFile,
       blob,

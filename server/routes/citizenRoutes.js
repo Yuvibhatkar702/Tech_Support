@@ -68,7 +68,7 @@ router.get(
   '/complaints',
   citizenAuth,
   [
-    query('status').optional().isIn(['pending', 'in_progress', 'resolved', 'rejected']),
+    query('status').optional().isIn(['pending', 'in_progress', 'closed', 'rejected']),
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 50 }),
   ],

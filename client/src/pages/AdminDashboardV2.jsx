@@ -27,9 +27,8 @@ const markerIcons = {
   pending: createMarkerIcon('orange'),
   assigned: createMarkerIcon('blue'),
   in_progress: createMarkerIcon('yellow'),
-  resolved: createMarkerIcon('green'),
+  closed: createMarkerIcon('green'),
   rejected: createMarkerIcon('red'),
-  closed: createMarkerIcon('grey'),
 };
 
 function MapBoundsUpdater({ complaints }) {
@@ -53,7 +52,7 @@ function SLATimer({ createdAt, status, priority }) {
     const deadline = new Date(createdAt).getTime() + slaHours * 60 * 60 * 1000;
 
     const updateTimer = () => {
-      if (['resolved', 'closed', 'rejected'].includes(status)) {
+      if (['closed', 'rejected'].includes(status)) {
         setTimeLeft('Closed');
         return;
       }
@@ -111,7 +110,7 @@ export default function AdminDashboardV2() {
   const [mapCenter] = useState([20.5937, 78.9629]);
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/admin/login');
+    if (!isAuthenticated) navigate('/official-login');
   }, [isAuthenticated, navigate]);
 
   // Verify session on mount to handle token expiry
@@ -124,7 +123,7 @@ export default function AdminDashboardV2() {
         if (error.response?.status === 401) {
           console.warn('Admin session expired. Logging out...');
           logout();
-          navigate('/admin/login');
+          navigate('/official-login');
         }
       }
     };
@@ -216,7 +215,7 @@ export default function AdminDashboardV2() {
   };
 
   const categories = ['roads', 'water', 'electricity', 'sanitation', 'public_safety', 'environment', 'transportation', 'healthcare', 'education', 'other'];
-  const statuses = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected', 'closed'];
+  const statuses = ['pending', 'assigned', 'in_progress', 'closed', 'rejected'];
   const priorities = ['low', 'medium', 'high', 'critical'];
 
   if (!isAuthenticated) return null;
@@ -250,7 +249,7 @@ export default function AdminDashboardV2() {
               }`}>
                 {admin?.role?.replace('_', ' ')}
               </div>
-              <button onClick={() => { logout(); navigate('/admin/login'); }} className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => { logout(); navigate('/official-login'); }} className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                 Logout
               </button>
             </div>
@@ -266,7 +265,7 @@ export default function AdminDashboardV2() {
               { value: stats.total || 0, label: 'Total', color: 'gray', icon: '📊' },
               { value: stats.byStatus?.pending || 0, label: 'Pending', color: 'yellow', icon: '⏳' },
               { value: stats.byStatus?.in_progress || 0, label: 'In Progress', color: 'blue', icon: '🔄' },
-              { value: stats.byStatus?.resolved || 0, label: 'Resolved', color: 'green', icon: '✅' },
+              { value: stats.byStatus?.closed || 0, label: 'Closed', color: 'green', icon: '✅' },
               { value: stats.byStatus?.rejected || 0, label: 'Rejected', color: 'red', icon: '❌' },
               { value: stats.todayCount || 0, label: 'Today', color: 'primary', icon: '📅' },
             ].map((stat, i) => (
@@ -457,7 +456,7 @@ export default function AdminDashboardV2() {
               <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg z-[1000]">
                 <p className="text-xs font-medium text-gray-700 mb-2">Legend</p>
                 <div className="space-y-1">
-                  {[['🟠', 'Pending'], ['🟡', 'In Progress'], ['🟢', 'Resolved'], ['🔴', 'Rejected']].map(([icon, label]) => (
+                  {[['🟠', 'Pending'], ['🟡', 'In Progress'], ['🟢', 'Closed'], ['🔴', 'Rejected']].map(([icon, label]) => (
                     <div key={label} className="flex items-center gap-2 text-xs">
                       <span>{icon}</span><span className="text-gray-600">{label}</span>
                     </div>

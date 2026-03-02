@@ -103,7 +103,7 @@ input:disabled, select:disabled, textarea:disabled {
   @apply badge bg-blue-100 text-blue-800;
 }
 
-.badge-resolved {
+.badge-closed {
   @apply badge bg-green-100 text-green-800;
 }
 
@@ -162,7 +162,7 @@ input:disabled, select:disabled, textarea:disabled {
   filter: hue-rotate(200deg);
 }
 
-.marker-resolved {
+.marker-closed {
   filter: hue-rotate(100deg);
 }
 

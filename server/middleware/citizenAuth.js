@@ -1,7 +1,10 @@
 const Citizen = require('../models/Citizen');
 
+const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Citizen authentication middleware
+ * Validates session token and enforces 5-minute sliding timeout.
  */
 const citizenAuth = async (req, res, next) => {
   try {
@@ -36,12 +39,31 @@ const citizenAuth = async (req, res, next) => {
       });
     }
 
-    // Update last used
-    const session = citizen.sessions.find(s => s.token === token);
-    if (session) {
-      session.lastUsedAt = new Date();
-      await citizen.save();
+    // Find the specific session and check timeout
+    const session = citizen.sessions.find(s => s.token === token && s.isActive);
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session not found',
+      });
     }
+
+    const lastUsed = session.lastUsedAt || session.createdAt;
+    const elapsed = Date.now() - new Date(lastUsed).getTime();
+
+    if (elapsed > SESSION_TIMEOUT_MS) {
+      // Session expired — deactivate it
+      session.isActive = false;
+      await citizen.save();
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired due to inactivity. Please login again.',
+      });
+    }
+
+    // Sliding session: update lastUsedAt
+    session.lastUsedAt = new Date();
+    await citizen.save();
 
     req.citizen = citizen;
     req.token = token;

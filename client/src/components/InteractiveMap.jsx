@@ -18,7 +18,7 @@ const createCustomIcon = (status, priority) => {
   const colors = {
     pending: '#f59e0b',
     in_progress: '#3b82f6',
-    resolved: '#10b981',
+    closed: '#10b981',
     rejected: '#ef4444',
     duplicate: '#6b7280',
   };
@@ -150,7 +150,7 @@ export default function InteractiveMap({ onComplaintSelect }) {
     }
   };
 
-  const statuses = ['pending', 'in_progress', 'resolved', 'rejected'];
+  const statuses = ['pending', 'in_progress', 'closed', 'rejected'];
   const categories = [
     'road_damage', 'street_light', 'water_supply', 'sewage', 'garbage',
     'encroachment', 'noise_pollution', 'illegal_construction', 'traffic', 'other'
@@ -212,7 +212,7 @@ export default function InteractiveMap({ onComplaintSelect }) {
         {Object.entries({
           pending: '#f59e0b',
           in_progress: '#3b82f6',
-          resolved: '#10b981',
+          closed: '#10b981',
           rejected: '#ef4444',
         }).map(([status, color]) => (
           <div key={status} className="flex items-center gap-1">
@@ -272,7 +272,7 @@ export default function InteractiveMap({ onComplaintSelect }) {
                     <p>
                       <span className="font-medium">Status:</span>{' '}
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        complaint.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                        complaint.status === 'closed' ? 'bg-green-100 text-green-700' :
                         complaint.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                         complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-gray-100 text-gray-700'

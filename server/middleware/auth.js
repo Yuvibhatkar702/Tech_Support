@@ -3,7 +3,19 @@ const config = require('../config');
 const Admin = require('../models/Admin');
 
 /**
+ * Generate a fresh JWT for sliding session refresh
+ */
+const generateRefreshToken = (decoded) => {
+  return jwt.sign(
+    { id: decoded.id, email: decoded.email, role: decoded.role },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn } // 5m
+  );
+};
+
+/**
  * Authentication middleware for protected routes
+ * Validates JWT, refreshes token (sliding session), attaches admin to request.
  */
 const auth = async (req, res, next) => {
   try {
@@ -33,8 +45,21 @@ const auth = async (req, res, next) => {
         });
       }
 
+      // Role mismatch guard — prevent cross-portal token reuse
+      if (decoded.role && decoded.role !== admin.role) {
+        return res.status(401).json({
+          success: false,
+          message: 'Token role mismatch. Please login again.',
+        });
+      }
+
       req.admin = admin;
       req.token = token;
+
+      // ── Sliding session: issue a fresh token on every valid request ──
+      const freshToken = generateRefreshToken(decoded);
+      res.setHeader('x-refresh-token', freshToken);
+
       next();
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
@@ -128,6 +153,9 @@ const optionalAuth = async (req, res, next) => {
       if (admin) {
         req.admin = admin;
         req.token = token;
+        // Sliding refresh
+        const freshToken = generateRefreshToken(decoded);
+        res.setHeader('x-refresh-token', freshToken);
       }
     } catch (error) {
       // Ignore token errors for optional auth

@@ -32,21 +32,6 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSelector />
-            <Link
-              to="/official-login"
-              className="text-white/80 hover:text-white text-sm font-medium flex items-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              Official Login
-            </Link>
-            <Link
-              to="/admin/login"
-              className="text-white/80 hover:text-white text-sm font-medium"
-            >
-              {t('nav_admin')}
-            </Link>
           </div>
         </div>
       </header>
@@ -85,13 +70,6 @@ export default function HomePage() {
 
           {/* Secondary Links */}
           <div className="flex flex-wrap justify-center gap-4 mb-16">
-            <Link
-              to="/community"
-              className="text-white/80 hover:text-white text-sm font-medium flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
-            >
-              <span>👥</span>
-              Community Feed
-            </Link>
             <Link
               to="/citizen"
               className="text-white/80 hover:text-white text-sm font-medium flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"

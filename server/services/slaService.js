@@ -147,7 +147,7 @@ const processSLAChecks = async () => {
   console.log('🕐 Running SLA check...');
   
   try {
-    // Find all non-resolved complaints
+    // Find all non-closed complaints
     const complaints = await Complaint.find({
       status: { $in: ['pending', 'in_progress'] },
     });

@@ -94,7 +94,7 @@ async function handleIncomingMessage(message, contact) {
       // Send status tracking instructions
       await whatsappService.sendTextMessage(
         phoneNumber,
-        'To check your complaint status, please reply with your Complaint ID (e.g., GRV250201001).'
+        'To check your complaint status, please reply with your Complaint ID (e.g., GRV2603020001).'
       );
     } else if (text.match(/^grv\d+$/i)) {
       // User sent a complaint ID - fetch and send status
@@ -174,7 +174,8 @@ async function handleListResponse(phoneNumber, listId) {
 /**
  * Manual trigger to send complaint link (for testing)
  */
-router.post('/send-link', async (req, res) => {
+const { auth } = require('../middleware');
+router.post('/send-link', auth, async (req, res) => {
   try {
     const { phoneNumber, sessionId, language } = req.body;
 

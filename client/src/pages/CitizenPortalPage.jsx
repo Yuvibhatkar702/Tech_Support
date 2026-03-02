@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const ACTIVITY_EVENTS = ['mousemove', 'click', 'keydown', 'scroll', 'touchstart'];
 
 export default function CitizenPortalPage() {
   const { t } = useTranslation();
@@ -24,13 +26,45 @@ export default function CitizenPortalPage() {
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  // Restore citizen session from localStorage on mount
+  // Clear any stale citizen session — always require fresh OTP login
   useEffect(() => {
-    const savedToken = localStorage.getItem('citizenToken');
-    if (savedToken && !token) {
-      setToken(savedToken);
-    }
+    localStorage.removeItem('citizenToken');
   }, []);
+
+  // ── Citizen session activity tracking & auto-logout ───────────────
+  const touchCitizenSession = useCallback(() => {
+    if (!token) return;
+    localStorage.setItem('citizenSession', Date.now().toString());
+  }, [token]);
+
+  // Activity listeners
+  useEffect(() => {
+    if (!token) return;
+    const handler = () => touchCitizenSession();
+    ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, handler, { passive: true }));
+    return () => ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, handler));
+  }, [token, touchCitizenSession]);
+
+  // 30-second interval check for session expiry
+  useEffect(() => {
+    if (!token) return;
+    const id = setInterval(() => {
+      const lastActive = parseInt(localStorage.getItem('citizenSession') || '0', 10);
+      if (lastActive > 0 && Date.now() - lastActive > SESSION_TIMEOUT) {
+        clearInterval(id);
+        // Inline logout to avoid stale closure
+        localStorage.removeItem('citizenToken');
+        localStorage.removeItem('citizenSession');
+        setToken(null);
+        setIsLoggedIn(false);
+        setCitizenData(null);
+        setComplaints([]);
+        setStats(null);
+        setStep('phone');
+      }
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [token]);
 
   useEffect(() => {
     if (token && !isLoggedIn) {
@@ -116,6 +150,7 @@ export default function CitizenPortalPage() {
               const verifyData = await verifyRes.json();
               if (verifyData.success) {
                 localStorage.setItem('citizenToken', verifyData.data.token);
+                localStorage.setItem('citizenSession', Date.now().toString());
                 setToken(verifyData.data.token);
                 setLoading(false);
               }
@@ -147,6 +182,7 @@ export default function CitizenPortalPage() {
 
       if (data.success) {
         localStorage.setItem('citizenToken', data.data.token);
+        localStorage.setItem('citizenSession', Date.now().toString());
         setToken(data.data.token);
       } else {
         setError(data.message || 'Invalid OTP');
@@ -169,6 +205,7 @@ export default function CitizenPortalPage() {
     }
     
     localStorage.removeItem('citizenToken');
+    localStorage.removeItem('citizenSession');
     setToken(null);
     setIsLoggedIn(false);
     setCitizenData(null);
@@ -203,7 +240,7 @@ export default function CitizenPortalPage() {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
       in_progress: 'bg-blue-100 text-blue-700 border-blue-200',
-      resolved: 'bg-green-100 text-green-700 border-green-200',
+      closed: 'bg-green-100 text-green-700 border-green-200',
       rejected: 'bg-red-100 text-red-700 border-red-200',
     };
     return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200';
@@ -376,12 +413,12 @@ export default function CitizenPortalPage() {
           <StatCard label="Total" value={stats?.total || 0} icon="📋" color="blue" />
           <StatCard label="Pending" value={stats?.pending || 0} icon="⏳" color="yellow" />
           <StatCard label="In Progress" value={stats?.inProgress || 0} icon="🔄" color="blue" />
-          <StatCard label="Resolved" value={stats?.resolved || 0} icon="✅" color="green" />
+          <StatCard label="Closed" value={stats?.closed || 0} icon="✅" color="green" />
         </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {['all', 'pending', 'in_progress', 'resolved', 'rejected'].map((tab) => (
+          {['all', 'pending', 'in_progress', 'closed', 'rejected'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -576,7 +613,7 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
               {complaint.statusHistory.slice(-3).reverse().map((history, index) => (
                 <div key={index} className="flex items-center gap-2 text-xs">
                   <span className={`w-2 h-2 rounded-full ${
-                    history.status === 'resolved' ? 'bg-green-500' :
+                    history.status === 'closed' ? 'bg-green-500' :
                     history.status === 'in_progress' ? 'bg-blue-500' :
                     'bg-yellow-500'
                   }`} />
@@ -591,7 +628,7 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
         )}
 
         {/* Feedback Section */}
-        {complaint.status === 'resolved' && !complaint.feedback?.rating && (
+        {complaint.status === 'closed' && !complaint.feedback?.rating && (
           <div className="mt-4 pt-4 border-t">
             {!showFeedback ? (
               <button

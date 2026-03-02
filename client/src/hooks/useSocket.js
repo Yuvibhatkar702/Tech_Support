@@ -23,7 +23,6 @@ export function useSocket(userId, userRole = 'admin') {
     socket.connect();
 
     socket.on('connect', () => {
-      console.log('Socket connected');
       setIsConnected(true);
       
       // Join appropriate room based on role
@@ -36,7 +35,6 @@ export function useSocket(userId, userRole = 'admin') {
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
       setIsConnected(false);
     });
 
@@ -176,7 +174,6 @@ export function useSocket(userId, userRole = 'admin') {
 // Request notification permission
 export async function requestNotificationPermission() {
   if (!('Notification' in window)) {
-    console.log('Notifications not supported');
     return false;
   }
 

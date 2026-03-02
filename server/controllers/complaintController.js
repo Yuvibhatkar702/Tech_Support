@@ -1,6 +1,7 @@
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Complaint = require('../models/Complaint');
 const AuditLog = require('../models/AuditLog');
 const { geocodingService, duplicateDetectionService, whatsappService } = require('../services');
@@ -12,6 +13,18 @@ const { classifyImage: classifyImageService } = require('../services/imageClassi
 const { getEstimatedResolution, calculateExpectedResolution, calculateRemainingTime } = require('../utils/resolutionTime');
 const { getDepartmentByCategory } = require('../utils/departmentMapper');
 const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('../utils/progressTracker');
+
+// ─── In-memory OTP store for tracking by mobile number ──────────────
+// Key: phoneNumber, Value: { otp, expiresAt, attempts }
+const trackingOTPStore = new Map();
+
+// Cleanup expired OTPs every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of trackingOTPStore) {
+    if (now > val.expiresAt) trackingOTPStore.delete(key);
+  }
+}, 10 * 60 * 1000);
 
 /**
  * Classify an image via the Python AI model (proxy endpoint)
@@ -340,7 +353,7 @@ exports.getComplaintStatus = async (req, res) => {
 
     // Calculate remaining time dynamically
     let countdown = null;
-    if (complaint.expectedResolveAt && !['resolved', 'closed', 'rejected'].includes(complaint.status)) {
+    if (complaint.expectedResolveAt && !['closed', 'rejected'].includes(complaint.status)) {
       countdown = calculateRemainingTime(complaint.expectedResolveAt);
       countdown.expectedResolveAt = complaint.expectedResolveAt;
       countdown.resolutionDays = complaint.resolutionDays;
@@ -387,7 +400,7 @@ exports.getComplaintStatus = async (req, res) => {
             changedAt: h.changedAt,
             remarks: h.remarks,
           })),
-          resolution: complaint.status === 'resolved' ? complaint.resolution : null,
+          resolution: complaint.status === 'closed' ? complaint.resolution : null,
           resolutionProof: (complaint.resolutionProof || []).map(p => {
             const normalized = (p.filePath || '').replace(/\\/g, '/');
             const afterUploads = normalized.split('uploads/')[1] || p.fileName;
@@ -400,9 +413,16 @@ exports.getComplaintStatus = async (req, res) => {
           officerRating: complaint.officerRating || null,
           reopenCount: complaint.reopenCount || 0,
           reopenReason: complaint.reopenReason || null,
-          image: complaint.image ? {
+          image: complaint.image?.filePath ? {
             fileName: complaint.image.fileName,
+            filePath: complaint.image.filePath,
           } : null,
+          images: (complaint.images || [])
+            .filter((img) => img.filePath)
+            .map((img) => ({
+              fileName: img.fileName,
+              filePath: img.filePath,
+            })),
           countdown,
         },
       },
@@ -539,7 +559,7 @@ exports.updateComplaintStatus = async (req, res) => {
     const { id } = req.params;
     const { status, remarks } = req.body;
 
-    const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected', 'duplicate'];
+    const validStatuses = ['pending', 'in_progress', 'closed', 'rejected', 'duplicate'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -558,7 +578,7 @@ exports.updateComplaintStatus = async (req, res) => {
     const previousStatus = complaint.status;
     complaint.updateStatus(status, req.admin._id, remarks);
 
-    if (status === 'resolved') {
+    if (status === 'closed') {
       complaint.resolution = {
         description: remarks,
         resolvedAt: new Date(),
@@ -733,11 +753,19 @@ exports.getComplaintStats = async (req, res) => {
       if (endDate) dateMatch.createdAt.$lte = new Date(endDate);
     }
 
+    // Today's date range
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     const [
       statusStats,
       categoryStats,
       dailyStats,
       totalCount,
+      todayCount,
+      overdueCount,
     ] = await Promise.all([
       // Stats by status
       Complaint.aggregate([
@@ -769,12 +797,23 @@ exports.getComplaintStats = async (req, res) => {
       
       // Total count
       Complaint.countDocuments(dateMatch),
+
+      // Today's complaints count
+      Complaint.countDocuments({ createdAt: { $gte: todayStart, $lte: todayEnd } }),
+
+      // Overdue complaints (past SLA and not closed/rejected)
+      Complaint.countDocuments({
+        expectedResolveAt: { $lt: new Date() },
+        status: { $nin: ['closed', 'rejected'] },
+      }),
     ]);
 
     res.json({
       success: true,
       data: {
         total: totalCount,
+        todayCount,
+        overdueCount,
         byStatus: statusStats.reduce((acc, s) => ({ ...acc, [s._id]: s.count }), {}),
         byCategory: categoryStats.reduce((acc, s) => ({ ...acc, [s._id]: s.count }), {}),
         daily: dailyStats,
@@ -843,7 +882,7 @@ exports.updateComplaint = async (req, res) => {
 
     // Update status if provided
     if (status && status !== complaint.status) {
-      const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected', 'duplicate'];
+      const validStatuses = ['pending', 'in_progress', 'closed', 'rejected', 'duplicate'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -853,7 +892,7 @@ exports.updateComplaint = async (req, res) => {
       complaint.updateStatus(status, req.admin._id, remarks || internalNotes);
       statusChanged = true;
 
-      if (status === 'resolved') {
+      if (status === 'closed') {
         complaint.resolution = {
           description: remarks || internalNotes,
           resolvedAt: new Date(),
@@ -923,7 +962,7 @@ exports.updateComplaint = async (req, res) => {
   }
 };
 
-// ─── PUBLIC: Reopen a resolved complaint ────────────────────────────
+// ─── PUBLIC: Reopen a closed complaint ────────────────────────────
 exports.reopenComplaint = async (req, res) => {
   try {
     const { complaintId } = req.params;
@@ -943,10 +982,10 @@ exports.reopenComplaint = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Phone number does not match' });
     }
 
-    if (complaint.status !== 'resolved') {
+    if (complaint.status !== 'closed') {
       return res.status(400).json({
         success: false,
-        message: `Cannot reopen — current status is "${complaint.status}". Only resolved complaints can be reopened.`,
+        message: `Cannot reopen — current status is "${complaint.status}". Only closed complaints can be reopened.`,
       });
     }
 
@@ -1025,10 +1064,10 @@ exports.rateOfficer = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Phone number does not match' });
     }
 
-    if (complaint.status !== 'resolved') {
+    if (complaint.status !== 'closed') {
       return res.status(400).json({
         success: false,
-        message: 'Can only rate a resolved complaint.',
+        message: 'Can only rate a closed complaint.',
       });
     }
 
@@ -1082,5 +1121,159 @@ exports.rateOfficer = async (req, res) => {
   } catch (error) {
     console.error('Rate officer error:', error);
     res.status(500).json({ success: false, message: 'Failed to submit rating' });
+  }
+};
+
+// ─── Tracking by Mobile Number (OTP-protected) ─────────────────────
+
+/**
+ * Send OTP for tracking by mobile number
+ * POST /complaints/track/send-otp
+ */
+exports.trackSendOTP = async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required',
+      });
+    }
+
+    // Check if any complaints exist for this phone number
+    const complaintCount = await Complaint.countDocuments({ 'user.phoneNumber': phoneNumber });
+    if (complaintCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No complaints found for this phone number',
+      });
+    }
+
+    // Rate limiting: 1-minute cooldown
+    const existing = trackingOTPStore.get(phoneNumber);
+    if (existing && existing.lastSentAt) {
+      const timeSince = Date.now() - existing.lastSentAt;
+      if (timeSince < 60000) {
+        return res.status(429).json({
+          success: false,
+          message: 'Please wait before requesting another OTP',
+          retryAfter: Math.ceil((60000 - timeSince) / 1000),
+        });
+      }
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    trackingOTPStore.set(phoneNumber, {
+      otp,
+      expiresAt,
+      attempts: 0,
+      lastSentAt: Date.now(),
+    });
+
+    // In development, return OTP in response
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    // TODO: Send OTP via SMS in production
+    console.log(`📱 Tracking OTP for ${phoneNumber}: ${otp}`);
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      complaintCount,
+      ...(isDev && { otp }),
+    });
+  } catch (error) {
+    console.error('Track send OTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send OTP' });
+  }
+};
+
+/**
+ * Verify OTP and return all complaints for the phone number
+ * POST /complaints/track/verify-otp
+ */
+exports.trackVerifyOTP = async (req, res) => {
+  try {
+    const { phoneNumber, otp } = req.body;
+
+    if (!phoneNumber || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP are required',
+      });
+    }
+
+    const stored = trackingOTPStore.get(phoneNumber);
+
+    if (!stored) {
+      return res.status(400).json({
+        success: false,
+        message: 'No OTP requested for this number. Please request a new OTP.',
+      });
+    }
+
+    if (stored.attempts >= 3) {
+      trackingOTPStore.delete(phoneNumber);
+      return res.status(400).json({
+        success: false,
+        message: 'Too many attempts. Please request a new OTP.',
+      });
+    }
+
+    if (Date.now() > stored.expiresAt) {
+      trackingOTPStore.delete(phoneNumber);
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.',
+      });
+    }
+
+    stored.attempts += 1;
+
+    if (stored.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP',
+        attemptsRemaining: 3 - stored.attempts,
+      });
+    }
+
+    // OTP is valid — clear it
+    trackingOTPStore.delete(phoneNumber);
+
+    // Fetch all complaints for this phone number
+    const complaints = await Complaint.find({ 'user.phoneNumber': phoneNumber })
+      .sort({ createdAt: -1 })
+      .select('complaintId status category description createdAt updatedAt location address department')
+      .lean();
+
+    // Format complaints for response
+    const formatted = complaints.map((c) => ({
+      complaintId: c.complaintId,
+      status: c.status,
+      category: c.category,
+      description: c.description ? c.description.substring(0, 150) + (c.description.length > 150 ? '...' : '') : '',
+      location: c.address ? geocodingService.formatAddressForDisplay(c.address) : null,
+      department: c.department || null,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    }));
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      data: {
+        phoneNumber,
+        totalComplaints: formatted.length,
+        complaints: formatted,
+      },
+    });
+  } catch (error) {
+    console.error('Track verify OTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify OTP' });
   }
 };

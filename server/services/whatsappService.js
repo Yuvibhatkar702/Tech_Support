@@ -110,7 +110,7 @@ class WhatsAppService {
     const templateMap = {
       pending: 'complaint_received',
       in_progress: 'complaint_in_progress',
-      resolved: 'complaint_resolved',
+      closed: 'complaint_resolved',
       rejected: 'complaint_rejected',
     };
 
@@ -171,10 +171,10 @@ class WhatsAppService {
           shortStatus: 'In Progress',
           body: `Your complaint (${complaintId}) is now being worked on. Our team is addressing the issue.`,
         },
-        resolved: {
-          title: 'Complaint Resolved',
-          shortStatus: 'Resolved',
-          body: `Your complaint (${complaintId}) has been resolved. Thank you for helping improve our community.`,
+        closed: {
+          title: 'Complaint Closed',
+          shortStatus: 'Closed',
+          body: `Your complaint (${complaintId}) has been closed. Thank you for helping improve our community.`,
         },
         rejected: {
           title: 'Complaint Update',
@@ -193,10 +193,10 @@ class WhatsAppService {
           shortStatus: 'प्रगति पर',
           body: `आपकी शिकायत (${complaintId}) पर अब काम किया जा रहा है। हमारी टीम इस मुद्दे को संबोधित कर रही है।`,
         },
-        resolved: {
-          title: 'शिकायत का समाधान',
-          shortStatus: 'समाधान हो गया',
-          body: `आपकी शिकायत (${complaintId}) का समाधान कर दिया गया है। हमारे समुदाय को बेहतर बनाने में मदद करने के लिए धन्यवाद।`,
+        closed: {
+          title: 'शिकायत बंद',
+          shortStatus: 'बंद',
+          body: `आपकी शिकायत (${complaintId}) बंद कर दी गई है। हमारे समुदाय को बेहतर बनाने में मदद करने के लिए धन्यवाद।`,
         },
         rejected: {
           title: 'शिकायत अपडेट',
@@ -215,9 +215,9 @@ class WhatsAppService {
           shortStatus: 'நடைபெறுகிறது',
           body: `உங்கள் புகார் (${complaintId}) இப்போது பணியில் உள்ளது. எங்கள் குழு பிரச்சினையை தீர்க்கிறது.`,
         },
-        resolved: {
-          title: 'புகார் தீர்க்கப்பட்டது',
-          shortStatus: 'தீர்க்கப்பட்டது',
+        closed: {
+          title: 'புகார் மூடப்பட்டது',
+          shortStatus: 'மூடப்பட்டது',
           body: `உங்கள் புகார் (${complaintId}) தீர்க்கப்பட்டது. எங்கள் சமூகத்தை மேம்படுத்த உதவியதற்கு நன்றி.`,
         },
         rejected: {

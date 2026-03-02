@@ -160,8 +160,8 @@ exports.getProfile = async (req, res) => {
           inProgress: {
             $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] }
           },
-          resolved: {
-            $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] }
+          closed: {
+            $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] }
           },
         },
       },
@@ -174,7 +174,7 @@ exports.getProfile = async (req, res) => {
         name: citizen.name,
         email: citizen.email,
         preferences: citizen.preferences,
-        stats: stats[0] || { total: 0, pending: 0, inProgress: 0, resolved: 0 },
+        stats: stats[0] || { total: 0, pending: 0, inProgress: 0, closed: 0 },
         createdAt: citizen.createdAt,
       },
     });
@@ -263,7 +263,7 @@ exports.getMyComplaints = async (req, res) => {
 };
 
 /**
- * Submit feedback for resolved complaint
+ * Submit feedback for closed complaint
  */
 exports.submitFeedback = async (req, res) => {
   try {
@@ -290,10 +290,10 @@ exports.submitFeedback = async (req, res) => {
       });
     }
 
-    if (complaint.status !== 'resolved') {
+    if (complaint.status !== 'closed') {
       return res.status(400).json({
         success: false,
-        message: 'Can only submit feedback for resolved complaints',
+        message: 'Can only submit feedback for closed complaints',
       });
     }
 

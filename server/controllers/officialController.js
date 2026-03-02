@@ -138,14 +138,6 @@ exports.officialLogin = async (req, res) => {
 
     const official = await Admin.findByCredentials(email, password);
 
-    // Only department_head and officer roles can use the official login
-    if (!['department_head', 'officer'].includes(official.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'This login is for department officials only. Please use the Admin login.',
-      });
-    }
-
     const token = generateToken(official);
 
     await AuditLog.log('official_login', {
@@ -438,21 +430,21 @@ exports.resolveComplaint = async (req, res) => {
       }));
     }
 
-    complaint.status = 'resolved';
+    complaint.status = 'closed';
     complaint.resolvedAt = new Date();
     complaint.resolution = {
-      description: remarks || 'Issue resolved',
+      description: remarks || 'Issue closed',
       resolvedAt: new Date(),
     };
     complaint.statusHistory.push({
-      status: 'resolved',
+      status: 'closed',
       changedAt: new Date(),
       changedBy: req.admin._id,
-      remarks: remarks || 'Resolved by officer',
+      remarks: remarks || 'Closed by officer',
     });
     await complaint.save();
 
-    await AuditLog.log('complaint_resolved', {
+    await AuditLog.log('complaint_closed', {
       admin: req.admin._id,
       complaint: complaint._id,
       details: { hasProof: !!(req.files && req.files.length) },
@@ -460,7 +452,7 @@ exports.resolveComplaint = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Complaint resolved',
+      message: 'Complaint closed',
       data: {
         complaintId: complaint.complaintId,
         status: complaint.status,
@@ -470,7 +462,7 @@ exports.resolveComplaint = async (req, res) => {
     });
   } catch (error) {
     console.error('Resolve error:', error);
-    res.status(500).json({ success: false, message: 'Failed to resolve complaint' });
+    res.status(500).json({ success: false, message: 'Failed to close complaint' });
   }
 };
 
@@ -521,13 +513,13 @@ exports.getDepartmentStats = async (req, res) => {
   try {
     const deptCode = req.admin.departmentCode || req.admin.department;
 
-    const [total, pending, assigned, inProgress, resolved, overdue] = await Promise.all([
+    const [total, pending, assigned, inProgress, closed, overdue] = await Promise.all([
       Complaint.countDocuments({ department: deptCode }),
       Complaint.countDocuments({ department: deptCode, status: 'pending' }),
       Complaint.countDocuments({ department: deptCode, status: 'assigned' }),
       Complaint.countDocuments({ department: deptCode, status: 'in_progress' }),
-      Complaint.countDocuments({ department: deptCode, status: { $in: ['resolved', 'closed'] } }),
-      Complaint.countDocuments({ department: deptCode, expectedResolveAt: { $lt: new Date() }, status: { $nin: ['resolved', 'closed'] } }),
+      Complaint.countDocuments({ department: deptCode, status: 'closed' }),
+      Complaint.countDocuments({ department: deptCode, expectedResolveAt: { $lt: new Date() }, status: { $nin: ['closed'] } }),
     ]);
 
     // Officer ratings leaderboard
@@ -552,7 +544,7 @@ exports.getDepartmentStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: { total, pending, assigned, inProgress, resolved, overdue, officerRatings },
+      data: { total, pending, assigned, inProgress, closed, overdue, officerRatings },
     });
   } catch (error) {
     console.error('Dept stats error:', error);
@@ -563,11 +555,11 @@ exports.getDepartmentStats = async (req, res) => {
 // ─── Officer stats ──────────────────────────────────────────────────
 exports.getOfficerStats = async (req, res) => {
   try {
-    const [total, assigned, inProgress, resolved] = await Promise.all([
+    const [total, assigned, inProgress, closed] = await Promise.all([
       Complaint.countDocuments({ assignedTo: req.admin._id }),
       Complaint.countDocuments({ assignedTo: req.admin._id, status: 'assigned' }),
       Complaint.countDocuments({ assignedTo: req.admin._id, status: 'in_progress' }),
-      Complaint.countDocuments({ assignedTo: req.admin._id, status: { $in: ['resolved', 'closed'] } }),
+      Complaint.countDocuments({ assignedTo: req.admin._id, status: 'closed' }),
     ]);
 
     // Average officer rating
@@ -580,7 +572,7 @@ exports.getOfficerStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: { total, assigned, inProgress, resolved, avgRating, totalRatings },
+      data: { total, assigned, inProgress, closed, avgRating, totalRatings },
     });
   } catch (error) {
     console.error('Officer stats error:', error);

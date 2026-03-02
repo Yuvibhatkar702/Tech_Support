@@ -30,9 +30,8 @@ const markerIcons = {
   pending: createMarkerIcon('orange'),
   assigned: createMarkerIcon('blue'),
   in_progress: createMarkerIcon('yellow'),
-  resolved: createMarkerIcon('green'),
+  closed: createMarkerIcon('green'),
   rejected: createMarkerIcon('red'),
-  closed: createMarkerIcon('grey'),
 };
 
 // Map bounds updater component
@@ -84,7 +83,7 @@ export default function AdminDashboardPage() {
   // Check auth
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/admin/login');
+      navigate('/official-login');
     }
   }, [isAuthenticated, navigate]);
 
@@ -98,7 +97,7 @@ export default function AdminDashboardPage() {
         if (error.response?.status === 401) {
           console.warn('Admin session expired. Logging out...');
           logout();
-          navigate('/admin/login');
+          navigate('/official-login');
         }
       }
     };
@@ -185,7 +184,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login');
+    navigate('/official-login');
   };
 
   const categories = [
@@ -194,7 +193,7 @@ export default function AdminDashboardPage() {
   ];
 
   const statuses = [
-    'pending', 'assigned', 'in_progress', 'resolved', 'rejected', 'closed'
+    'pending', 'assigned', 'in_progress', 'closed', 'rejected'
   ];
 
   const priorities = ['low', 'medium', 'high', 'critical'];
@@ -253,8 +252,8 @@ export default function AdminDashboardPage() {
               <p className="text-sm text-gray-600">In Progress</p>
             </div>
             <div className="card p-4">
-              <p className="text-2xl font-bold text-green-600">{stats.byStatus?.resolved || 0}</p>
-              <p className="text-sm text-gray-600">Resolved</p>
+              <p className="text-2xl font-bold text-green-600">{stats.byStatus?.closed || 0}</p>
+              <p className="text-sm text-gray-600">Closed</p>
             </div>
             <div className="card p-4">
               <p className="text-2xl font-bold text-red-600">{stats.byStatus?.rejected || 0}</p>
@@ -520,7 +519,7 @@ export default function AdminDashboardPage() {
                   {Object.entries({
                     pending: ['🟠', 'Pending'],
                     in_progress: ['🟡', 'In Progress'],
-                    resolved: ['🟢', 'Resolved'],
+                    closed: ['🟢', 'Closed'],
                     rejected: ['🔴', 'Rejected'],
                   }).map(([key, [icon, label]]) => (
                     <div key={key} className="flex items-center gap-2 text-xs">

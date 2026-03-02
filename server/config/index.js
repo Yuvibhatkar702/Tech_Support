@@ -9,8 +9,10 @@ module.exports = {
   mongoUri: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/grievance_portal',
   
   // JWT
-  jwtSecret: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
-  jwtExpiresIn: '7d',
+  jwtSecret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('JWT_SECRET env var is REQUIRED in production'); })()
+    : 'dev-only-secret-not-for-production'),
+  jwtExpiresIn: '5m',
   
   // WhatsApp Cloud API
   whatsapp: {

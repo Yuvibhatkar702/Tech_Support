@@ -216,16 +216,15 @@ const resources = {
         pending: 'Pending',
         assigned: 'Assigned',
         in_progress: 'In Progress',
-        resolved: 'Resolved',
-        rejected: 'Rejected',
         closed: 'Closed',
+        rejected: 'Rejected',
       },
       
       // Admin Dashboard
       total_complaints: 'Total Complaints',
       pending: 'Pending',
       in_progress: 'In Progress',
-      resolved: 'Resolved',
+      closed: 'Closed',
       overdue: 'Overdue',
       today: 'Today',
       remaining: 'remaining',
@@ -361,9 +360,8 @@ const resources = {
         pending: 'लंबित',
         assigned: 'सौंपा गया',
         in_progress: 'प्रगति में',
-        resolved: 'हल हो गया',
-        rejected: 'अस्वीकृत',
         closed: 'बंद',
+        rejected: 'अस्वीकृत',
       },
       
       // Home
@@ -403,9 +401,8 @@ const resources = {
         pending: 'நிலுவையில்',
         assigned: 'ஒதுக்கப்பட்டது',
         in_progress: 'நடந்து கொண்டிருக்கிறது',
-        resolved: 'தீர்க்கப்பட்டது',
-        rejected: 'நிராகரிக்கப்பட்டது',
         closed: 'மூடப்பட்டது',
+        rejected: 'நிராகரிக்கப்பட்டது',
       },
       
       // Home

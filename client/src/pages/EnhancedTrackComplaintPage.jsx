@@ -20,7 +20,9 @@ import {
   ArrowUturnLeftIcon,
   MicrophoneIcon,
   XMarkIcon,
-  CameraIcon
+  CameraIcon,
+  DevicePhoneMobileIcon,
+  IdentificationIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon, StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { complaintApi } from '../services/api';
@@ -28,6 +30,8 @@ import { useToastStore } from '../store';
 import LanguageSelector from '../components/LanguageSelector';
 import StatusBadge from '../components/StatusBadge';
 import QRCodeScanner from '../components/QRCodeScanner';
+
+const IMAGE_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
 
 // Status Timeline Component
 function StatusTimeline({ history, currentStatus }) {
@@ -37,10 +41,10 @@ function StatusTimeline({ history, currentStatus }) {
     { key: 'pending', label: t('status.pending'), icon: ClockIcon },
     { key: 'assigned', label: t('status.assigned'), icon: TagIcon },
     { key: 'in_progress', label: t('status.in_progress'), icon: ArrowPathIcon },
-    { key: 'resolved', label: t('status.resolved'), icon: CheckCircleIcon },
+    { key: 'closed', label: t('status.closed'), icon: CheckCircleIcon },
   ];
 
-  const statusOrder = ['pending', 'assigned', 'in_progress', 'resolved'];
+  const statusOrder = ['pending', 'assigned', 'in_progress', 'closed'];
   const currentIndex = statusOrder.indexOf(currentStatus);
   const isRejected = currentStatus === 'rejected';
 
@@ -323,6 +327,40 @@ function ComplaintCard({ complaint }) {
             <p className="text-sm text-gray-700">{complaint.description}</p>
           </div>
         )}
+
+        {/* Complaint Image(s) */}
+        {(() => {
+          // Collect all available image paths
+          const imgs = [];
+          if (complaint.image?.filePath) imgs.push(complaint.image.filePath);
+          if (complaint.images?.length) {
+            complaint.images.forEach((img) => {
+              if (img.filePath && !imgs.includes(img.filePath)) imgs.push(img.filePath);
+            });
+          }
+          if (imgs.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <PhotoIcon className="w-4 h-4 text-gray-400" />
+                <p className="text-xs text-gray-500 uppercase tracking-wide">{t('photo', 'Photo')}</p>
+              </div>
+              <div className={`grid gap-2 ${imgs.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {imgs.map((fp, idx) => (
+                  <div key={idx} className="rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                    <img
+                      src={`${IMAGE_BASE}/${fp.replace(/\\/g, '/')}`}
+                      alt={`Complaint photo ${idx + 1}`}
+                      className="w-full max-h-64 object-contain cursor-pointer hover:opacity-90 transition"
+                      onClick={() => window.open(`${IMAGE_BASE}/${fp.replace(/\\/g, '/')}`, '_blank')}
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -343,6 +381,18 @@ export default function EnhancedTrackComplaintPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
+
+  // Tab state: 'id' or 'mobile'
+  const [activeTab, setActiveTab] = useState(urlComplaintId ? 'id' : 'id');
+
+  // Mobile tracking state
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [mobileComplaints, setMobileComplaints] = useState(null);
+  const [mobileError, setMobileError] = useState(null);
+  const [resendTimer, setResendTimer] = useState(0);
 
   // Reopen state
   const [showReopenForm, setShowReopenForm] = useState(false);
@@ -524,6 +574,92 @@ export default function EnhancedTrackComplaintPage() {
     }
   };
 
+  // ─── Mobile OTP Tracking Handlers ─────────────────────────────────
+
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  const handleSendOTP = async (e) => {
+    e?.preventDefault();
+    const phone = mobileNumber.trim();
+    if (!phone) return;
+
+    setOtpLoading(true);
+    setMobileError(null);
+
+    try {
+      const result = await complaintApi.trackSendOTP(phone);
+      if (result.success) {
+        setOtpSent(true);
+        setResendTimer(60); // 60s cooldown
+        addToast(t('otp_sent'), 'success');
+        // Dev mode: auto-fill OTP if returned
+        if (result.otp) {
+          setOtpValue(result.otp);
+        }
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || t('error_generic');
+      if (err.response?.status === 404) {
+        setMobileError(t('no_complaints_for_number'));
+      } else if (err.response?.status === 429) {
+        setMobileError(msg);
+        setResendTimer(err.response?.data?.retryAfter || 60);
+      } else {
+        setMobileError(msg);
+      }
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e?.preventDefault();
+    const phone = mobileNumber.trim();
+    const otp = otpValue.trim();
+    if (!phone || !otp) return;
+
+    setOtpLoading(true);
+    setMobileError(null);
+
+    try {
+      const result = await complaintApi.trackVerifyOTP(phone, otp);
+      if (result.success) {
+        setMobileComplaints(result.data);
+        addToast(t('otp_sent_hint'), 'success');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || t('otp_invalid');
+      setMobileError(msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const resetMobileSearch = () => {
+    setOtpSent(false);
+    setOtpValue('');
+    setMobileComplaints(null);
+    setMobileError(null);
+    setMobileNumber('');
+    setResendTimer(0);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setError(null);
+    setMobileError(null);
+  };
+
   const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
 
   return (
@@ -544,6 +680,35 @@ export default function EnhancedTrackComplaintPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6">
+        {/* Tab Switcher */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 mb-6 flex">
+          <button
+            onClick={() => handleTabChange('id')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'id'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <IdentificationIcon className="w-5 h-5" />
+            {t('tab_complaint_id')}
+          </button>
+          <button
+            onClick={() => handleTabChange('mobile')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+              activeTab === 'mobile'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <DevicePhoneMobileIcon className="w-5 h-5" />
+            {t('tab_mobile_number')}
+          </button>
+        </div>
+
+        {/* ═══ TAB 1: Complaint ID Search ═══ */}
+        {activeTab === 'id' && (
+          <>
         {/* Search Form */}
         <motion.form
           initial={{ opacity: 0, y: 20 }}
@@ -773,8 +938,8 @@ export default function EnhancedTrackComplaintPage() {
                 </motion.div>
               )}
 
-              {/* Reopen & Rate Buttons (only when resolved and not yet rated) */}
-              {complaint.status === 'resolved' && !complaint.officerRating?.rating && (
+              {/* Reopen & Rate Buttons (only when closed and not yet rated) */}
+              {complaint.status === 'closed' && !complaint.officerRating?.rating && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1003,7 +1168,7 @@ export default function EnhancedTrackComplaintPage() {
           )}
         </AnimatePresence>
 
-        {/* Empty State */}
+        {/* Empty State (ID tab) */}
         {!complaint && !isLoading && !error && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1019,6 +1184,207 @@ export default function EnhancedTrackComplaintPage() {
             <p className="text-gray-500 text-sm max-w-xs mx-auto">
               {t('tracking_instruction')}
             </p>
+          </motion.div>
+        )}
+          </>
+        )}
+
+        {/* ═══ TAB 2: Mobile Number Search ═══ */}
+        {activeTab === 'mobile' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {/* Show complaints list if OTP verified */}
+            {mobileComplaints ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{t('your_complaints')}</h3>
+                    <p className="text-sm text-gray-500">
+                      {mobileComplaints.totalComplaints} {t('total_found')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={resetMobileSearch}
+                    className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    <ArrowLeftIcon className="w-4 h-4" />
+                    {t('back_to_search')}
+                  </button>
+                </div>
+
+                {mobileComplaints.complaints.map((c) => (
+                  <Link
+                    key={c.complaintId}
+                    to={`/track/${c.complaintId}`}
+                    onClick={() => { setActiveTab('id'); setSearchId(c.complaintId.replace(/^GRV/i, '')); }}
+                    className="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:border-primary-200 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono font-bold text-primary-700">{c.complaintId}</span>
+                      <StatusBadge status={c.status} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <TagIcon className="w-4 h-4 text-gray-400" />
+                        <span>{c.category}</span>
+                      </div>
+                      {c.location && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <MapPinIcon className="w-4 h-4 text-gray-400" />
+                          <span className="truncate">{c.location}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <CalendarIcon className="w-4 h-4 text-gray-400" />
+                        <span>{new Date(c.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {c.description && (
+                        <p className="text-sm text-gray-500 mt-1">{c.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end mt-3 text-primary-600 text-sm font-medium">
+                      {t('view_details')}
+                      <ChevronRightIcon className="w-4 h-4 ml-1" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              /* Send OTP / Verify OTP Form */
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                {!otpSent ? (
+                  /* Step 1: Enter phone number */
+                  <form onSubmit={handleSendOTP}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('enter_mobile_number')}
+                    </label>
+                    <div className="flex gap-3">
+                      <div className="flex-1 relative flex">
+                        <span className="inline-flex items-center px-4 bg-gray-100 border border-r-0 border-gray-200 rounded-l-xl text-gray-600 font-semibold text-sm select-none">
+                          +91
+                        </span>
+                        <input
+                          type="tel"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                          className="w-full pl-3 pr-4 py-3 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono"
+                          maxLength={10}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={otpLoading || mobileNumber.trim().length !== 10}
+                        className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2"
+                      >
+                        {otpLoading ? (
+                          <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <DevicePhoneMobileIcon className="w-5 h-5" />
+                            <span className="hidden sm:inline">{t('send_otp')}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* Step 2: Enter OTP */
+                  <form onSubmit={handleVerifyOTP}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">{t('otp_sent')}</p>
+                        <p className="text-xs text-gray-500">+91 {mobileNumber}</p>
+                      </div>
+                    </div>
+
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('enter_otp')}
+                    </label>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={otpValue}
+                        onChange={(e) => setOtpValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                        placeholder={t('otp_placeholder')}
+                        className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-center text-lg tracking-widest"
+                        maxLength={6}
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        disabled={otpLoading || otpValue.trim().length < 6}
+                        className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2"
+                      >
+                        {otpLoading ? (
+                          <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <MagnifyingGlassIcon className="w-5 h-5" />
+                            <span className="hidden sm:inline">{t('verify_otp')}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-3">
+                      <button
+                        type="button"
+                        onClick={resetMobileSearch}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        {t('back_to_search')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendOTP}
+                        disabled={resendTimer > 0 || otpLoading}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {resendTimer > 0
+                          ? `${t('otp_resend_in')} ${resendTimer}s`
+                          : t('otp_resend')}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Mobile Error */}
+                {mobileError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2"
+                  >
+                    <ExclamationCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{mobileError}</p>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state for mobile tab */}
+            {!otpSent && !mobileComplaints && !mobileError && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <DevicePhoneMobileIcon className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {t('tab_mobile_number')}
+                </h3>
+                <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                  {t('mobile_tracking_instruction')}
+                </p>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </main>

@@ -179,13 +179,13 @@ export default function TrackComplaintPage() {
               </div>
 
               {/* Resolution details */}
-              {complaint.resolution && complaint.status === 'resolved' && (
+              {complaint.resolution && complaint.status === 'closed' && (
                 <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
                   <p className="text-sm font-medium text-green-800 mb-1">Resolution</p>
                   <p className="text-sm text-green-700">{complaint.resolution.description}</p>
                   {complaint.resolution.resolvedAt && (
                     <p className="text-xs text-green-600 mt-2">
-                      Resolved on {new Date(complaint.resolution.resolvedAt).toLocaleDateString()}
+                      Closed on {new Date(complaint.resolution.resolvedAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>

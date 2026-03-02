@@ -52,9 +52,8 @@ const markerIcons = {
   pending: createMarkerIcon('orange'),
   assigned: createMarkerIcon('blue'),
   in_progress: createMarkerIcon('yellow'),
-  resolved: createMarkerIcon('green'),
+  closed: createMarkerIcon('green'),
   rejected: createMarkerIcon('red'),
-  closed: createMarkerIcon('grey'),
 };
 
 // Map bounds updater
@@ -82,7 +81,7 @@ function MapBoundsUpdater({ complaints }) {
 function SLATimer({ createdAt, slaHours = 72, status }) {
   const { t } = useTranslation();
   
-  if (['resolved', 'rejected', 'closed'].includes(status)) {
+  if (['closed', 'rejected'].includes(status)) {
     return null;
   }
 
@@ -600,7 +599,7 @@ export default function EnhancedAdminDashboardPage() {
         if (error.response?.status === 401) {
           console.warn('Admin session expired. Logging out...');
           logout();
-          navigate('/admin/login');
+          navigate('/official-login');
         }
       }
     };
@@ -632,7 +631,7 @@ export default function EnhancedAdminDashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const categories = ['roads', 'water', 'electricity', 'sanitation', 'public_safety', 'environment', 'transportation', 'healthcare', 'education', 'other'];
-  const statuses = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected', 'closed'];
+  const statuses = ['pending', 'assigned', 'in_progress', 'closed', 'rejected'];
   const priorities = ['low', 'medium', 'high', 'critical'];
 
   // Fetch data
@@ -762,7 +761,7 @@ export default function EnhancedAdminDashboardPage() {
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login');
+    navigate('/official-login');
   };
 
   if (!isAuthenticated) return null;
@@ -848,10 +847,10 @@ export default function EnhancedAdminDashboardPage() {
             />
             <StatCard
               icon={CheckIcon}
-              label={t('resolved')}
-              value={stats.byStatus?.resolved || 0}
+              label={t('closed')}
+              value={stats.byStatus?.closed || 0}
               color="green"
-              onClick={() => handleFilterChange('status', 'resolved')}
+              onClick={() => handleFilterChange('status', 'closed')}
             />
             <StatCard
               icon={ExclamationTriangleIcon}
@@ -1163,7 +1162,7 @@ export default function EnhancedAdminDashboardPage() {
                   {[
                     { status: 'pending', color: '🟠', label: t('status.pending') },
                     { status: 'in_progress', color: '🟡', label: t('status.in_progress') },
-                    { status: 'resolved', color: '🟢', label: t('status.resolved') },
+                    { status: 'closed', color: '🟢', label: t('status.closed') },
                     { status: 'rejected', color: '🔴', label: t('status.rejected') },
                   ].map(({ status, color, label }) => (
                     <div key={status} className="flex items-center gap-2">

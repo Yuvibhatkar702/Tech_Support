@@ -19,7 +19,22 @@ router.post(
 );
 
 // Seed all default accounts (admin + dept heads + officers)
-router.post('/seed', adminController.seedAccounts);
+// Protected: only super_admin can re-seed; if no admins exist yet it's allowed
+router.post('/seed', async (req, res, next) => {
+  const Admin = require('../models/Admin');
+  const count = await Admin.countDocuments();
+  if (count > 0) {
+    // Admins exist — require super_admin auth
+    return auth(req, res, (err) => {
+      if (err) return next(err);
+      if (req.admin?.role !== 'super_admin') {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
+      next();
+    });
+  }
+  next(); // No admins yet — allow initial seed without auth
+}, adminController.seedAccounts);
 
 // Admin login
 router.post(

@@ -99,7 +99,7 @@ const complaintSchema = new mongoose.Schema({
   // Status Tracking
   status: {
     type: String,
-    enum: ['pending', 'assigned', 'in_progress', 'resolved', 'reopened', 'closed', 'rejected', 'duplicate'],
+    enum: ['pending', 'assigned', 'in_progress', 'reopened', 'closed', 'rejected', 'duplicate'],
     default: 'pending',
     index: true,
   },
@@ -107,7 +107,7 @@ const complaintSchema = new mongoose.Schema({
   statusHistory: [{
     status: {
       type: String,
-      enum: ['pending', 'assigned', 'in_progress', 'resolved', 'reopened', 'closed', 'rejected', 'duplicate'],
+      enum: ['pending', 'assigned', 'in_progress', 'reopened', 'closed', 'rejected', 'duplicate'],
     },
     changedAt: {
       type: Date,
@@ -383,19 +383,19 @@ complaintSchema.index({
   'address.fullAddress': 'text',
 });
 
-// Generate unique complaint ID
+// Generate unique complaint ID (resets yearly)
 complaintSchema.statics.generateComplaintId = async function() {
   const date = new Date();
   const year = date.getFullYear().toString().slice(-2);
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   
-  // Find the count of complaints today
-  const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+  // Find the count of complaints this year (counter resets each year)
+  const startOfYear = new Date(date.getFullYear(), 0, 1, 0, 0, 0, 0);
+  const endOfYear = new Date(date.getFullYear(), 11, 31, 23, 59, 59, 999);
   
   const count = await this.countDocuments({
-    createdAt: { $gte: startOfDay, $lte: endOfDay }
+    createdAt: { $gte: startOfYear, $lte: endOfYear }
   });
   
   const sequence = (count + 1).toString().padStart(4, '0');

@@ -26,6 +26,13 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Mark activity on every outgoing API call
+    const keys = ['adminSession', 'officerSession'];
+    keys.forEach((k) => {
+      if (localStorage.getItem(k)) localStorage.setItem(k, Date.now().toString());
+    });
+
     return config;
   },
   (error) => {
@@ -33,23 +40,42 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
-// Handle 401 errors to auto-logout stale sessions
+// Response interceptor:
+// 1. Capture x-refresh-token header (sliding session) and update correct store
+// 2. Handle 401 to auto-logout stale sessions
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // ── Sliding session: pick up the refreshed JWT ──────────────────
+    const freshToken = response.headers['x-refresh-token'];
+    if (freshToken) {
+      // Determine which store owns the token that was sent
+      const officialToken = useOfficialStore.getState().token;
+      const adminToken = useAuthStore.getState().token;
+
+      if (officialToken && response.config?.headers?.Authorization?.includes(officialToken)) {
+        useOfficialStore.getState().login(useOfficialStore.getState().official, freshToken);
+      } else if (adminToken && response.config?.headers?.Authorization?.includes(adminToken)) {
+        useAuthStore.getState().login(useAuthStore.getState().admin, freshToken);
+      }
+    }
+
+    return response;
+  },
   (error) => {
     // On 401 (Unauthorized), the JWT might have expired or become invalid
     // Clear both stores to force re-login
     if (error.response?.status === 401) {
       const message = error.response?.data?.message || '';
       // Only auto-clear if it's a token issue (not just wrong password on login)
-      if (message.includes('expired') || message.includes('Invalid token') || message.includes('Access denied')) {
+      if (message.includes('expired') || message.includes('Invalid token') || message.includes('Access denied') || message.includes('mismatch')) {
         console.warn('Session expired or invalid token - clearing auth stores');
         // Don't clear during login attempts
         const url = error.config?.url || '';
         if (!url.includes('/login')) {
           useAuthStore.getState().logout();
           useOfficialStore.getState().logout();
+          localStorage.removeItem('adminSession');
+          localStorage.removeItem('officerSession');
         }
       }
     }
@@ -108,7 +134,19 @@ export const complaintApi = {
     return response.data;
   },
 
-  // Reopen a resolved complaint (public)
+  // Send OTP for mobile-number tracking (public)
+  trackSendOTP: async (phoneNumber) => {
+    const response = await api.post('/complaints/track/send-otp', { phoneNumber });
+    return response.data;
+  },
+
+  // Verify OTP and get complaints by mobile number (public)
+  trackVerifyOTP: async (phoneNumber, otp) => {
+    const response = await api.post('/complaints/track/verify-otp', { phoneNumber, otp });
+    return response.data;
+  },
+
+  // Reopen a closed complaint (public)
   reopenComplaint: async (complaintId, reason, phone, imageFile) => {
     const formData = new FormData();
     formData.append('reason', reason);
@@ -275,41 +313,6 @@ export const adminApi = {
   // Update complaint
   updateComplaint: async (id, updates) => {
     const response = await api.patch(`/complaints/${id}`, updates);
-    return response.data;
-  },
-};
-
-// Community APIs
-export const communityApi = {
-  // Get community feed
-  getFeed: async (params = {}) => {
-    const response = await api.get('/community/feed', { params });
-    return response.data;
-  },
-
-  // Get trending complaints
-  getTrending: async () => {
-    const response = await api.get('/community/trending/list');
-    return response.data;
-  },
-
-  // Get community stats
-  getStats: async () => {
-    const response = await api.get('/community/stats/summary');
-    return response.data;
-  },
-
-  // Get single complaint details
-  getComplaint: async (complaintId) => {
-    const response = await api.get(`/community/${complaintId}`);
-    return response.data;
-  },
-
-  // Upvote a complaint
-  upvote: async (complaintId, voterPhone = null) => {
-    const response = await api.post(`/community/${complaintId}/upvote`, {
-      voterPhone,
-    });
     return response.data;
   },
 };

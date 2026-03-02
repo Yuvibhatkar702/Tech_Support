@@ -9,14 +9,12 @@ function StatusBadge({ status }) {
   const colors = {
     assigned: 'bg-blue-100 text-blue-800',
     in_progress: 'bg-indigo-100 text-indigo-800',
-    resolved: 'bg-green-100 text-green-800',
-    closed: 'bg-gray-100 text-gray-800',
+    closed: 'bg-green-100 text-green-800',
     reopened: 'bg-orange-100 text-orange-800',
   };
   const labels = {
     assigned: 'Assigned',
     in_progress: 'In Progress',
-    resolved: 'Resolved',
     closed: 'Closed',
     reopened: 'Reopened',
   };
@@ -64,10 +62,10 @@ export default function OfficerDashboardPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
-  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [resolveRemarks, setResolveRemarks] = useState('');
-  const [resolveFiles, setResolveFiles] = useState(null);
+  const [closeRemarks, setCloseRemarks] = useState('');
+  const [closeFiles, setCloseFiles] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isListening, setIsListening] = useState(false);
@@ -87,7 +85,7 @@ export default function OfficerDashboardPage() {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript + ' ';
         }
-        setResolveRemarks((prev) => (prev + ' ' + transcript).trim());
+        setCloseRemarks((prev) => (prev + ' ' + transcript).trim());
       };
 
       recognitionRef.current.onerror = () => setIsListening(false);
@@ -172,26 +170,26 @@ export default function OfficerDashboardPage() {
     }
   };
 
-  const handleResolve = async () => {
+  const handleClose = async () => {
     if (!selectedComplaint) return;
     setActionLoading(selectedComplaint._id);
     try {
       const formData = new FormData();
-      formData.append('remarks', resolveRemarks || 'Issue resolved');
-      if (resolveFiles) {
-        Array.from(resolveFiles).forEach((f) => formData.append('proof', f));
+      formData.append('remarks', closeRemarks || 'Issue closed');
+      if (closeFiles) {
+        Array.from(closeFiles).forEach((f) => formData.append('proof', f));
       }
       const res = await officialApi.resolveComplaint(selectedComplaint._id, formData);
       if (res.success) {
-        addToast('Complaint resolved', 'success');
-        setResolveModalOpen(false);
+        addToast('Complaint closed', 'success');
+        setCloseModalOpen(false);
         setSelectedComplaint(null);
-        setResolveRemarks('');
-        setResolveFiles(null);
+        setCloseRemarks('');
+        setCloseFiles(null);
         fetchData();
       }
     } catch (error) {
-      addToast(error.response?.data?.message || 'Failed to resolve', 'error');
+      addToast(error.response?.data?.message || 'Failed to close', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -226,7 +224,7 @@ export default function OfficerDashboardPage() {
             <StatCard label="Total Assigned" value={stats.total} icon="📋" color="bg-white border" />
             <StatCard label="Awaiting Start" value={stats.assigned} icon="⏳" color="bg-blue-50 text-blue-900" />
             <StatCard label="In Progress" value={stats.inProgress} icon="🔧" color="bg-indigo-50 text-indigo-900" />
-            <StatCard label="Resolved" value={stats.resolved} icon="✅" color="bg-green-50 text-green-900" />
+            <StatCard label="Closed" value={stats.closed} icon="✅" color="bg-green-50 text-green-900" />
             <StatCard label="Avg Rating" value={stats.avgRating ? `${stats.avgRating} ⭐` : 'N/A'} icon="⭐" color="bg-yellow-50 text-yellow-900" />
           </div>
         )}
@@ -253,7 +251,7 @@ export default function OfficerDashboardPage() {
         {/* Filters */}
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-600">Filter:</label>
-          {['', 'assigned', 'in_progress', 'resolved'].map((s) => (
+          {['', 'assigned', 'in_progress', 'closed'].map((s) => (
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setPage(1); }}
@@ -369,11 +367,11 @@ export default function OfficerDashboardPage() {
                   )}
                   {['assigned', 'in_progress'].includes(c.status) && (
                     <button
-                      onClick={() => { setSelectedComplaint(c); setResolveModalOpen(true); }}
+                      onClick={() => { setSelectedComplaint(c); setCloseModalOpen(true); }}
                       disabled={actionLoading === c._id}
                       className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
                     >
-                      Mark Resolved
+                      Close Complaint
                     </button>
                   )}
                 </div>
@@ -402,20 +400,20 @@ export default function OfficerDashboardPage() {
         </div>
       )}
 
-      {/* Resolve Modal */}
-      {resolveModalOpen && (
+      {/* Close Complaint Modal */}
+      {closeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Resolve Complaint</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Close Complaint</h3>
             <p className="text-sm text-gray-500 mb-4">{selectedComplaint?.complaintId}</p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Resolution Remarks</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Remarks</label>
                 <div className="relative">
                   <textarea
-                    value={resolveRemarks}
-                    onChange={(e) => setResolveRemarks(e.target.value)}
+                    value={closeRemarks}
+                    onChange={(e) => setCloseRemarks(e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 pr-12 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Describe the resolution…"
@@ -442,7 +440,7 @@ export default function OfficerDashboardPage() {
                   type="file"
                   accept="image/*"
                   multiple
-                  onChange={(e) => setResolveFiles(e.target.files)}
+                  onChange={(e) => setCloseFiles(e.target.files)}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                 />
               </div>
@@ -450,17 +448,17 @@ export default function OfficerDashboardPage() {
 
             <div className="flex gap-3 mt-5">
               <button
-                onClick={() => { setResolveModalOpen(false); setResolveRemarks(''); setResolveFiles(null); }}
+                onClick={() => { setCloseModalOpen(false); setCloseRemarks(''); setCloseFiles(null); }}
                 className="flex-1 py-2.5 border rounded-xl text-gray-700 hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
               <button
-                onClick={handleResolve}
+                onClick={handleClose}
                 disabled={actionLoading === selectedComplaint?._id}
                 className="flex-1 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition"
               >
-                {actionLoading === selectedComplaint?._id ? 'Resolving…' : 'Resolve'}
+                {actionLoading === selectedComplaint?._id ? 'Closing…' : 'Close'}
               </button>
             </div>
           </div>

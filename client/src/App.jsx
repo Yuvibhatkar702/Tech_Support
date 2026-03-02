@@ -1,18 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore, useOfficialStore } from './store';
 import Toast from './components/Toast';
+import useSessionManager from './hooks/useSessionManager';
 
 // Pages - Enhanced versions
 import HomePage from './pages/HomePage';
 import EnhancedSubmitComplaintPage from './pages/EnhancedSubmitComplaintPage';
 import EnhancedTrackComplaintPage from './pages/EnhancedTrackComplaintPage';
-import AdminLoginPage from './pages/AdminLoginPage';
 import EnhancedAdminDashboardPage from './pages/EnhancedAdminDashboardPage';
 import ComplaintDetailPage from './pages/ComplaintDetailPage';
 
 // New Feature Pages
-import CommunityFeedPage from './pages/CommunityFeedPage';
 import CitizenPortalPage from './pages/CitizenPortalPage';
 
 // Official / Role-based Pages
@@ -48,7 +47,7 @@ function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore();
 
   if (!hydrated) return <HydrationSpinner />;
-  if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/official-login" replace />;
 
   return children;
 }
@@ -66,15 +65,49 @@ function OfficialProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
+// ─── Session Guard: runs inside BrowserRouter to use useNavigate ────
+function SessionGuard() {
+  // Admin session (super_admin / admin)
+  const adminLogout = useAuthStore((s) => s.logout);
+  const getAdminToken = useCallback(() => useAuthStore.getState().token, []);
+
+  useSessionManager({
+    getToken: getAdminToken,
+    logout: () => {
+      adminLogout();
+      localStorage.removeItem('adminSession');
+    },
+    storageKey: 'adminSession',
+    loginPath: '/official-login',
+    enabled: true,
+  });
+
+  // Official session (officer / department_head)
+  const officialLogout = useOfficialStore((s) => s.logout);
+  const getOfficialToken = useCallback(() => useOfficialStore.getState().token, []);
+
+  useSessionManager({
+    getToken: getOfficialToken,
+    logout: () => {
+      officialLogout();
+      localStorage.removeItem('officerSession');
+    },
+    storageKey: 'officerSession',
+    loginPath: '/official-login',
+    enabled: true,
+  });
+
+  return null; // render nothing — pure side-effect component
+}
+
 // Register Service Worker for PWA
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('ServiceWorker registered:', registration.scope);
-      } catch (error) {
-        console.log('ServiceWorker registration failed:', error);
+        await navigator.serviceWorker.register('/sw.js');
+      } catch (_) {
+        // Service worker registration failed — non-critical
       }
     });
   }
@@ -88,6 +121,8 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* Session timeout guard – purely side-effect, renders nothing */}
+      <SessionGuard />
       {/* Global Components */}
       <Toast />
       
@@ -100,14 +135,13 @@ function App() {
         <Route path="/track/:complaintId" element={<EnhancedTrackComplaintPage />} />
         
         {/* New Feature Routes */}
-        <Route path="/community" element={<CommunityFeedPage />} />
         <Route path="/citizen" element={<CitizenPortalPage />} />
         
         {/* Official Login (unified for admin, dept head, officer) */}
         <Route path="/official-login" element={<OfficialLoginPage />} />
+        <Route path="/admin/login" element={<Navigate to="/official-login" replace />} />
         
         {/* Admin Routes */}
-        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route
           path="/admin/dashboard"
           element={

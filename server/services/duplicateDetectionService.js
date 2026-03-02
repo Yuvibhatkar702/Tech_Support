@@ -118,8 +118,8 @@ class DuplicateDetectionService {
       message += ' and is currently pending review.';
     } else if (closest.status === 'in_progress') {
       message += ' and is currently being addressed.';
-    } else if (closest.status === 'resolved') {
-      message += ` and was resolved on ${new Date(closest.createdAt).toLocaleDateString()}.`;
+    } else if (closest.status === 'closed') {
+      message += ` and was closed on ${new Date(closest.createdAt).toLocaleDateString()}.`;
     }
 
     if (duplicates.length > 1) {

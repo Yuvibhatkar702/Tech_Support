@@ -7,8 +7,6 @@ const STATUS_PROGRESS_MAP = {
   'pending':     20,
   'assigned':    40,
   'in_progress': 70,
-  'resolved':    100,
-  'reopened':    50,
   'closed':      100,
   'rejected':    100,
   'duplicate':   100,
@@ -31,7 +29,6 @@ function getStatusLabel(status) {
     'pending':     'Pending',
     'assigned':    'Assigned',
     'in_progress': 'In Progress',
-    'resolved':    'Resolved',
     'reopened':    'Reopened',
     'closed':      'Closed',
     'rejected':    'Rejected',
@@ -48,7 +45,7 @@ function getStatusTimeline() {
     { key: 'pending',     label: 'Pending',     progress: 20 },
     { key: 'assigned',    label: 'Assigned',    progress: 40 },
     { key: 'in_progress', label: 'In Progress', progress: 70 },
-    { key: 'resolved',    label: 'Resolved',    progress: 100 },
+    { key: 'closed',      label: 'Closed',      progress: 100 },
   ];
 }
 

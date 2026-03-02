@@ -9,7 +9,6 @@ const http = require('http');
 const config = require('./config');
 const { complaintRoutes, adminRoutes, whatsappRoutes } = require('./routes');
 const citizenRoutes = require('./routes/citizenRoutes');
-const communityRoutes = require('./routes/communityRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const officialRoutes = require('./routes/officialRoutes');
 const { initializeSocket } = require('./services/socketService');
@@ -19,37 +18,46 @@ const { verifyConnection: verifyEmailConnection } = require('./services/emailSer
 const app = express();
 const server = http.createServer(app);
 
+// Trust first proxy (Render / Vercel) — required for rate-limiting & req.ip
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // Disable for development
+  contentSecurityPolicy: config.nodeEnv === 'production' ? undefined : false,
 }));
 
 // CORS configuration
+const PROD_ORIGINS = [
+  'https://griviances.vercel.app',
+  config.clientUrl,
+].filter(Boolean);
+
+const DEV_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, curl, Vercel rewrites, etc.)
     if (!origin) return callback(null, true);
-    const allowed = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://griviances.vercel.app',
-      config.clientUrl,
-    ];
-    // Allow any Vercel preview/production URL for this project
+
+    const allowed = config.nodeEnv === 'production' ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
+
     if (
       allowed.includes(origin) ||
-      origin.endsWith('.vercel.app') ||
-      origin.endsWith('.onrender.com')
+      // Allow Vercel preview deploys for this project only
+      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin)
     ) {
       return callback(null, true);
     }
-    console.warn('CORS blocked origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['x-refresh-token'],
 }));
 
 // Rate limiting
@@ -86,7 +94,6 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/citizen', citizenRoutes);
-app.use('/api/community', communityRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/officials', officialRoutes);
 

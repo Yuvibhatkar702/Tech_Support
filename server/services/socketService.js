@@ -1,4 +1,5 @@
 const { Server } = require('socket.io');
+const config = require('../config');
 
 let io = null;
 const connectedAdmins = new Map(); // adminId -> socket
@@ -7,7 +8,7 @@ const connectedCitizens = new Map(); // phoneNumber -> socket
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: config.clientUrl,
       methods: ['GET', 'POST'],
       credentials: true,
     },

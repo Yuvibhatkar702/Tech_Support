@@ -90,13 +90,6 @@
       "description": "Track your grievance status",
       "url": "/track",
       "icons": [{ "src": "/icons/shortcut-track.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "Community Feed",
-      "short_name": "Community",
-      "description": "View community grievances",
-      "url": "/community",
-      "icons": [{ "src": "/icons/shortcut-community.png", "sizes": "96x96" }]
     }
   ],
   "related_applications": [],
