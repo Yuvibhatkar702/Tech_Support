@@ -361,7 +361,7 @@ function ManagePanel() {
   };
 
   const handleDeleteDepartment = async (dept) => {
-    if (!window.confirm(`Are you sure you want to permanently delete "${dept.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to remove "${dept.name}"? This will deactivate the department.`)) return;
     try {
       const res = await departmentApi.delete(dept._id);
       if (res.success) {
@@ -374,7 +374,7 @@ function ManagePanel() {
   };
 
   const handleDeleteOfficial = async (official) => {
-    if (!window.confirm(`Are you sure you want to permanently remove "${official.name}"? Their login will be deleted.`)) return;
+    if (!window.confirm(`Are you sure you want to remove "${official.name}"? This will deactivate their account.`)) return;
     try {
       const res = await officialApi.deleteOfficial(official._id);
       if (res.success) {

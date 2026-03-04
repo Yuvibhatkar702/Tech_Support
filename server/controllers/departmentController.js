@@ -166,10 +166,6 @@ exports.deleteDepartment = async (req, res) => {
       });
     }
 
-    // Clean up associated category mappings
-    const CategoryMapping = require('../models/CategoryMapping');
-    await CategoryMapping.deleteMany({ department: department.code });
-
     await Department.findByIdAndDelete(req.params.id);
 
     res.json({ success: true, message: `Department "${department.name}" has been permanently deleted` });
