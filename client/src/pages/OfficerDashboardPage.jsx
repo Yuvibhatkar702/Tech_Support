@@ -139,7 +139,14 @@ export default function OfficerDashboardPage() {
       ]);
       if (statsRes.success) setStats(statsRes.data);
       if (complaintsRes.success) {
-        setComplaints(complaintsRes.data);
+        const statusOrder = { reopened: 0, assigned: 1, in_progress: 2, pending: 3, closed: 4, rejected: 5 };
+        const sorted = [...complaintsRes.data].sort((a, b) => {
+          const oa = statusOrder[a.status] ?? 9;
+          const ob = statusOrder[b.status] ?? 9;
+          if (oa !== ob) return oa - ob;
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+        setComplaints(sorted);
         setPagination(complaintsRes.pagination);
       }
     } catch (error) {
@@ -326,6 +333,9 @@ export default function OfficerDashboardPage() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <p className="text-sm text-gray-700"><strong>Category:</strong> {c.category}</p>
                     <p className="text-sm text-gray-700"><strong>Phone:</strong> {c.user?.phoneNumber || '—'}</p>
+                    {c.assignedBy?.name && (
+                      <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {c.assignedBy.name}</p>
+                    )}
                     {displayDescription && (
                       <div>
                         {isReopened && (

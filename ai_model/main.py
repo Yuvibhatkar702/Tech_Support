@@ -67,9 +67,18 @@ def build_model() -> nn.Module:
     model = models.mobilenet_v3_small(
         weights=models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
     )
-    # Replace the final classifier layer
-    in_features = model.classifier[-1].in_features
-    model.classifier[-1] = nn.Linear(in_features, NUM_CLASSES)
+    in_features = model.classifier[0].in_features  # 576
+    model.classifier = nn.Sequential(
+        nn.Linear(in_features, 512),
+        nn.BatchNorm1d(512),
+        nn.ReLU(),
+        nn.Dropout(0.3),
+        nn.Linear(512, 256),
+        nn.BatchNorm1d(256),
+        nn.ReLU(),
+        nn.Dropout(0.3),
+        nn.Linear(256, NUM_CLASSES),
+    )
     return model
 
 
