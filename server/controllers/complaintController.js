@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const Complaint = require('../models/Complaint');
 const AuditLog = require('../models/AuditLog');
 const { geocodingService, duplicateDetectionService, whatsappService } = require('../services');
+const smsService = require('../services/smsService');
 const config = require('../config');
 const { analyzeComplaint, suggestPriority } = require('../services/aiService');
 const { initializeSLA } = require('../services/slaService');
@@ -238,6 +239,13 @@ exports.createComplaint = async (req, res) => {
     } catch (whatsappError) {
       console.error('WhatsApp notification failed:', whatsappError);
       // Don't fail the request if WhatsApp fails
+    }
+
+    // Send SMS confirmation
+    try {
+      await smsService.notifyComplaintSubmitted(complaint);
+    } catch (smsError) {
+      console.error('SMS notification failed:', smsError);
     }
 
     res.status(201).json({
@@ -623,6 +631,17 @@ exports.updateComplaintStatus = async (req, res) => {
       await complaint.save();
     } catch (whatsappError) {
       console.error('WhatsApp notification failed:', whatsappError);
+    }
+
+    // Send SMS notification
+    try {
+      if (status === 'closed' || status === 'rejected') {
+        await smsService.notifyComplaintClosed(complaint);
+      } else {
+        await smsService.notifyStatusUpdate(complaint, status);
+      }
+    } catch (smsError) {
+      console.error('SMS notification failed:', smsError);
     }
 
     res.json({

@@ -753,7 +753,6 @@ function PhoneVerifyStep({ phoneNumber, setPhoneNumber, onVerified }) {
               });
               const vData = await vRes.json();
               if (vData.success) {
-                localStorage.setItem('citizenToken', vData.data.token);
                 onVerified(phoneNumber);
               }
             } catch (_) { /* fallback to manual */ }
@@ -780,7 +779,6 @@ function PhoneVerifyStep({ phoneNumber, setPhoneNumber, onVerified }) {
       });
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem('citizenToken', data.data.token);
         onVerified(phoneNumber);
       } else {
         setError(data.message || 'Invalid OTP');

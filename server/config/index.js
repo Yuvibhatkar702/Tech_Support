@@ -49,6 +49,13 @@ module.exports = {
   // CORS
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   
+  // SMS / WhatsApp (Twilio)
+  sms: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    whatsappFrom: process.env.TWILIO_WHATSAPP_FROM,
+  },
+  
   // Uploads
   uploadDir: process.env.UPLOAD_DIR || './uploads',
 };

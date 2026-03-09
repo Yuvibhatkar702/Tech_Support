@@ -4,6 +4,7 @@ const Complaint = require('../models/Complaint');
 const Department = require('../models/Department');
 const AuditLog = require('../models/AuditLog');
 const config = require('../config');
+const smsService = require('../services/smsService');
 const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('../utils/progressTracker');
 const { calculateRemainingTime } = require('../utils/resolutionConfig');
 
@@ -468,6 +469,13 @@ exports.resolveComplaint = async (req, res) => {
       complaint: complaint._id,
       details: { hasProof: !!(req.files && req.files.length) },
     });
+
+    // Send SMS notification
+    try {
+      await smsService.notifyComplaintClosed(complaint);
+    } catch (smsError) {
+      console.error('SMS notification failed:', smsError);
+    }
 
     res.json({
       success: true,
