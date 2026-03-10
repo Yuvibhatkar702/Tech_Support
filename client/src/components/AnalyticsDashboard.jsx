@@ -91,7 +91,7 @@ export default function AnalyticsDashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          title="Total Complaints"
+          title="Total Tickets"
           value={stats?.total || 0}
           icon="📋"
           color="blue"
@@ -166,7 +166,7 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Trend Line Chart */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Complaint Trend</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ticket Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={trendData}>
               <defs>
@@ -238,7 +238,7 @@ export default function AnalyticsDashboard() {
 
       {/* Top Areas */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Complaint Areas</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Ticket Areas</h3>
         <div className="space-y-3">
           {(stats?.topAreas || []).map((area, index) => (
             <div key={index} className="flex items-center gap-4">
@@ -246,7 +246,7 @@ export default function AnalyticsDashboard() {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700">{area.name}</span>
-                  <span className="text-sm text-gray-500">{area.count} complaints</span>
+                  <span className="text-sm text-gray-500">{area.count} tickets</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div

@@ -4,44 +4,38 @@
  */
 
 const RESOLUTION_TIME_MAP = {
-  'Damaged Road Issue':        '3-5 working days',
-  'Garbage and Trash Issue':   '1-2 working days',
-  'Street Light Issue':        '2-3 working days',
-  'Fallen Trees':              '1-3 working days',
-  'Illegal Drawing on Walls':  '4-6 working days',
-
-  // Legacy category mappings
-  'DamagedRoads':              '3-5 working days',
-  'ElectricityIssues':         '2-3 working days',
-  'GarbageAndSanitation':      '1-2 working days',
-  'road_damage':               '3-5 working days',
-  'street_light':              '2-3 working days',
-  'garbage':                   '1-2 working days',
+  'Homepage':                  '24h',
+  'Admission Portal':          '24h',
+  'Examination Portal':        '24h',
+  'Student Portal':            '24h',
+  'Faculty Portal':            '24h',
+  'LMS':                       '24h',
+  'Payment Gateway':           '24h',
+  'Email System':              '24h',
+  'Mobile App':                '24h',
+  'Other':                     '24h',
 };
 
-const DEFAULT_RESOLUTION_TIME = '3-5 working days';
+const DEFAULT_RESOLUTION_TIME = '24h';
 
 /**
  * Resolution days mapping (for countdown timer).
  * Maps category to the number of calendar days for resolution.
  */
 const RESOLUTION_DAYS_MAP = {
-  'Damaged Road Issue':        5,
-  'Garbage and Trash Issue':   2,
-  'Street Light Issue':        3,
-  'Fallen Trees':              3,
-  'Illegal Drawing on Walls':  6,
-
-  // Legacy category mappings
-  'DamagedRoads':              5,
-  'ElectricityIssues':         3,
-  'GarbageAndSanitation':      2,
-  'road_damage':               5,
-  'street_light':              3,
-  'garbage':                   2,
+  'Homepage':                  1,
+  'Admission Portal':          1,
+  'Examination Portal':        1,
+  'Student Portal':            1,
+  'Faculty Portal':            1,
+  'LMS':                       1,
+  'Payment Gateway':           1,
+  'Email System':              1,
+  'Mobile App':                1,
+  'Other':                     1,
 };
 
-const DEFAULT_RESOLUTION_DAYS = 5;
+const DEFAULT_RESOLUTION_DAYS = 1;
 
 /**
  * Get estimated resolution time string for a complaint category.

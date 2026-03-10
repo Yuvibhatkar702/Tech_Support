@@ -1,7 +1,7 @@
 {
-  "name": "Grievance Portal - Public Grievance Management System",
-  "short_name": "Grievance Portal",
-  "description": "File, track, and manage public grievances efficiently",
+  "name": "Tech Support Portal - Technical Support Ticket Management System",
+  "short_name": "Tech Support",
+  "description": "Create, track, and manage technical support tickets efficiently",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

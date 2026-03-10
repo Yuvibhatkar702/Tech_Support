@@ -7,10 +7,8 @@ const AuditLog = require('../models/AuditLog');
 const { geocodingService, duplicateDetectionService, whatsappService } = require('../services');
 const smsService = require('../services/smsService');
 const config = require('../config');
-const { analyzeComplaint, suggestPriority } = require('../services/aiService');
 const { initializeSLA } = require('../services/slaService');
 const { notifyNewComplaint, notifyStatusUpdate } = require('../services/socketService');
-const { classifyImage: classifyImageService } = require('../services/imageClassificationService'); // ← NEW
 const { getEstimatedResolution, calculateExpectedResolution, calculateRemainingTime } = require('../utils/resolutionTime');
 const { getDepartmentByCategory, getDepartmentByCategoryAsync } = require('../utils/departmentMapper');
 const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('../utils/progressTracker');
@@ -28,31 +26,11 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 /**
- * Classify an image via the Python AI model (proxy endpoint)
+ * Classify image endpoint (deprecated - AI model removed)
  * POST /complaints/classify   (multipart, field: "image")
- * Called directly by the React frontend.
  */
 exports.classifyImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No image uploaded.' });
-    }
-
-    const result = await classifyImageService(req.file.path);
-
-    // Clean up the temp file — we only needed it for classification
-    fs.unlink(req.file.path, () => {});
-
-    return res.json({
-      success:    true,
-      category:   result.category,
-      raw_label:  result.rawLabel,
-      confidence: result.confidence,
-    });
-  } catch (error) {
-    console.error('classifyImage error:', error);
-    return res.status(500).json({ success: false, message: 'Classification failed.', category: 'other' });
-  }
+  return res.status(410).json({ success: false, message: 'AI classification has been removed. Please select a category manually.' });
 };
 
 /**
@@ -72,18 +50,21 @@ exports.createComplaint = async (req, res) => {
       preferredLanguage,
       confirmNotDuplicate,
       sessionId,
+      websiteName,
+      issueType,
+      priority,
     } = req.body;
 
     // Validate required fields
-    if (!category || !latitude || !longitude) {
+    if (!category) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: category, latitude, longitude',
+        message: 'Missing required field: category',
       });
     }
 
-    // Check for duplicates
-    if (!confirmNotDuplicate) {
+    // Check for duplicates (skip if no coordinates)
+    if (!confirmNotDuplicate && latitude && longitude) {
       const duplicateCheck = await duplicateDetectionService.checkForDuplicates(
         parseFloat(longitude),
         parseFloat(latitude),
@@ -100,20 +81,24 @@ exports.createComplaint = async (req, res) => {
       }
     }
 
-    // Reverse geocode the location
-    const geocodeResult = await geocodingService.reverseGeocode(
-      parseFloat(latitude),
-      parseFloat(longitude)
-    );
+    // Reverse geocode the location (only if coordinates provided)
+    let geocodeResult = { success: false };
+    if (latitude && longitude) {
+      geocodeResult = await geocodingService.reverseGeocode(
+        parseFloat(latitude),
+        parseFloat(longitude)
+      );
+    }
 
     // Generate complaint ID
     const complaintId = await Complaint.generateComplaintId();
 
-    // Process uploaded image
+    // Process uploaded screenshot image
     let imageData = null;
-    if (req.file) {
-      const originalPath = req.file.path;
-      const compressedFileName = `compressed-${req.file.filename}`;
+    const uploadedImage = req.files && req.files.image && req.files.image[0];
+    if (uploadedImage) {
+      const originalPath = uploadedImage.path;
+      const compressedFileName = `compressed-${uploadedImage.filename}`;
       const compressedPath = path.join(path.dirname(originalPath), compressedFileName);
 
       // Compress image using sharp
@@ -131,11 +116,11 @@ exports.createComplaint = async (req, res) => {
       fs.unlinkSync(originalPath);
 
       imageData = {
-        originalName: req.file.originalname,
+        originalName: uploadedImage.originalname,
         fileName: compressedFileName,
         filePath: compressedPath,
         mimeType: 'image/jpeg',
-        size: req.file.size,
+        size: uploadedImage.size,
         compressedSize: compressedStats.size,
         capturedAt: gpsTimestamp ? new Date(gpsTimestamp) : new Date(),
       };
@@ -144,18 +129,31 @@ exports.createComplaint = async (req, res) => {
       await AuditLog.log('image_compressed', {
         complaintId,
         details: {
-          originalSize: req.file.size,
+          originalSize: uploadedImage.size,
           compressedSize: compressedStats.size,
-          compressionRatio: ((1 - compressedStats.size / req.file.size) * 100).toFixed(2) + '%',
+          compressionRatio: ((1 - compressedStats.size / uploadedImage.size) * 100).toFixed(2) + '%',
         },
       });
+    }
+
+    // Process additional files
+    let additionalFilesData = [];
+    const uploadedAdditionalFiles = req.files && req.files.additionalFiles;
+    if (uploadedAdditionalFiles && uploadedAdditionalFiles.length > 0) {
+      additionalFilesData = uploadedAdditionalFiles.map(file => ({
+        originalName: file.originalname,
+        fileName: file.filename,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        size: file.size,
+      }));
     }
 
     // Route complaint to department (DB-backed CategoryMapping → fallback to hardcoded map)
     const deptInfo = await getDepartmentByCategoryAsync(category);
 
-    // Create the complaint
-    const complaint = new Complaint({
+    // Create the ticket
+    const complaintData = {
       complaintId,
       user: {
         phoneNumber,
@@ -164,21 +162,15 @@ exports.createComplaint = async (req, res) => {
       },
       category,
       description: description || '',
-      location: {
-        type: 'Point',
-        coordinates: [parseFloat(longitude), parseFloat(latitude)],
-        accuracy: accuracy ? parseFloat(accuracy) : null,
-        timestamp: gpsTimestamp ? new Date(gpsTimestamp) : new Date(),
-      },
-      address: geocodeResult.success ? geocodeResult.address : {
-        fullAddress: `${latitude}, ${longitude}`,
-      },
+      websiteName: websiteName || '',
+      issueType: issueType || 'other',
       image: imageData,
+      additionalFiles: additionalFilesData,
       status: 'pending',
       statusHistory: [{
         status: 'pending',
         changedAt: new Date(),
-        remarks: 'Complaint submitted',
+        remarks: 'Ticket submitted',
       }],
       duplicateWarningShown: confirmNotDuplicate || false,
       userConfirmedNotDuplicate: confirmNotDuplicate || false,
@@ -189,7 +181,27 @@ exports.createComplaint = async (req, res) => {
       department: deptInfo.departmentCode,
       departmentId: deptInfo.departmentId || undefined,
       departmentName: deptInfo.departmentName || undefined,
-    });
+    };
+
+    // Add priority if user specified
+    if (priority) {
+      complaintData.priority = priority;
+    }
+
+    // Add location if coordinates provided
+    if (latitude && longitude) {
+      complaintData.location = {
+        type: 'Point',
+        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+        accuracy: accuracy ? parseFloat(accuracy) : null,
+        timestamp: gpsTimestamp ? new Date(gpsTimestamp) : new Date(),
+      };
+      complaintData.address = geocodeResult.success ? geocodeResult.address : {
+        fullAddress: `${latitude}, ${longitude}`,
+      };
+    }
+
+    const complaint = new Complaint(complaintData);
 
     // Set resolution countdown fields
     const { resolutionDays, expectedResolveAt } = calculateExpectedResolution(
@@ -198,16 +210,6 @@ exports.createComplaint = async (req, res) => {
     );
     complaint.resolutionDays = resolutionDays;
     complaint.expectedResolveAt = expectedResolveAt;
-
-    // AI Analysis
-    try {
-      const aiAnalysis = await analyzeComplaint(description, category);
-      complaint.aiClassification = aiAnalysis;
-      complaint.priority = suggestPriority(aiAnalysis);
-    } catch (aiError) {
-      console.error('AI analysis failed:', aiError);
-      // Continue without AI analysis
-    }
 
     // Initialize SLA
     try {

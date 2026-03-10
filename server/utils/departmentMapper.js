@@ -9,31 +9,20 @@
  */
 
 const CATEGORY_DEPARTMENT_MAP = {
-  // Current AI-predicted categories
-  'Damaged Road Issue':       'road_department',
-  'Garbage and Trash Issue':  'sanitation_department',
-  'Street Light Issue':       'electricity_department',
-  'Fallen Trees':             'sanitation_department',
-  'Illegal Drawing on Walls': 'road_department',
-  'Other':                    'road_department', // default fallback
-
-  // Legacy category mappings
-  'DamagedRoads':             'road_department',
-  'ElectricityIssues':        'electricity_department',
-  'GarbageAndSanitation':     'sanitation_department',
-  'road_damage':              'road_department',
-  'street_light':             'electricity_department',
-  'water_supply':             'sanitation_department',
-  'sewage':                   'sanitation_department',
-  'garbage':                  'sanitation_department',
-  'encroachment':             'road_department',
-  'noise_pollution':          'road_department',
-  'illegal_construction':     'road_department',
-  'traffic':                  'road_department',
-  'other':                    'road_department',
+  // Website/module categories → all route to Support department
+  'homepage':           'support',
+  'admission_portal':   'support',
+  'examination_portal': 'support',
+  'student_portal':     'support',
+  'faculty_portal':     'support',
+  'lms':                'support',
+  'payment_gateway':    'support',
+  'email_system':       'support',
+  'mobile_app':         'support',
+  'other':              'support',
 };
 
-const DEFAULT_DEPARTMENT = 'road_department';
+const DEFAULT_DEPARTMENT = 'support';
 
 /**
  * Synchronous fallback — uses hardcoded map only.

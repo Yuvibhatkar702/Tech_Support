@@ -6,14 +6,6 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://grievance-backend-vkfs.onrender.com/api/:path*"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://grievance-backend-vkfs.onrender.com/uploads/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

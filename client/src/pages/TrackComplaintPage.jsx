@@ -135,7 +135,7 @@ export default function TrackComplaintPage() {
           </div>
         )}
 
-        {/* Complaint details */}
+        {/* Ticket details */}
         {complaint && (
           <div className="animate-fadeIn space-y-4">
             {/* Main card */}
@@ -234,13 +234,13 @@ export default function TrackComplaintPage() {
           </div>
         )}
 
-        {/* File new complaint button */}
+        {/* Create new ticket button */}
         <div className="mt-8 text-center">
           <Link to="/submit" className="btn-outline">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            File a New Complaint
+            Create a New Ticket
           </Link>
         </div>
       </main>
@@ -264,16 +264,16 @@ export default function TrackComplaintPage() {
 
 function getCategoryIcon(categoryId) {
   const icons = {
-    road_damage: '🛣️',
-    street_light: '💡',
-    water_supply: '💧',
-    sewage: '🚿',
-    garbage: '🗑️',
-    encroachment: '🚧',
-    noise_pollution: '🔊',
-    illegal_construction: '🏗️',
-    traffic: '🚗',
-    other: '📝',
+    homepage: '🏠',
+    admission_portal: '🎓',
+    examination_portal: '📝',
+    student_portal: '👨‍🎓',
+    faculty_portal: '👨‍🏫',
+    lms: '📚',
+    payment_gateway: '💳',
+    email_system: '📧',
+    mobile_app: '📱',
+    other: '🔧',
   };
-  return icons[categoryId] || '📝';
+  return icons[categoryId] || '🔧';
 }

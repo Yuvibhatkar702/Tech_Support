@@ -2,7 +2,7 @@ const express = require('express');
 const { body, query, param } = require('express-validator');
 const router = express.Router();
 const { complaintController } = require('../controllers');
-const { auth, checkPermission, upload, handleUploadError, validate } = require('../middleware');
+const { auth, checkPermission, upload, uploadTicketFiles, handleUploadError, validate } = require('../middleware');
 
 /**
  * Public Routes (for citizen complaint submission)
@@ -17,10 +17,13 @@ router.post(
   complaintController.classifyImage
 );
 
-// Create a new complaint
+// Create a new ticket
 router.post(
   '/',
-  upload.single('image'),
+  uploadTicketFiles.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'additionalFiles', maxCount: 5 },
+  ]),
   handleUploadError,
   [
     body('phoneNumber')
@@ -29,29 +32,7 @@ router.post(
       .withMessage('Invalid phone number format'),
     body('category')
       .notEmpty()
-      .withMessage('Category is required')
-      .isIn([
-        // Current categories
-        'Damaged Road Issue', 'Fallen Trees', 'Garbage and Trash Issue',
-        'Illegal Drawing on Walls', 'Street Light Issue', 'Other',
-        // Legacy categories (backward compatibility)
-        'DamagedRoads', 'ElectricityIssues', 'GarbageAndSanitation',
-        'road_damage', 'street_light', 'water_supply', 'sewage', 'garbage',
-        'encroachment', 'noise_pollution', 'illegal_construction', 'traffic',
-        'roads', 'water', 'electricity', 'sanitation', 'public_safety', 
-        'environment', 'transportation', 'healthcare', 'education', 'other'
-      ])
-      .withMessage('Invalid category'),
-    body('latitude')
-      .notEmpty()
-      .withMessage('Latitude is required')
-      .isFloat({ min: -90, max: 90 })
-      .withMessage('Invalid latitude'),
-    body('longitude')
-      .notEmpty()
-      .withMessage('Longitude is required')
-      .isFloat({ min: -180, max: 180 })
-      .withMessage('Invalid longitude'),
+      .withMessage('Category is required'),
     body('description')
       .optional()
       .isLength({ max: 2000 })

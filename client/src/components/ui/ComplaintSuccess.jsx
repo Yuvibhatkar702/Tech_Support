@@ -35,8 +35,8 @@ export default function ComplaintSuccess({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Complaint Submitted',
-          text: `Complaint ID: ${complaintId}`,
+          title: 'Ticket Submitted',
+          text: `Ticket ID: ${complaintId}`,
           url: trackingUrl,
         });
       } catch (err) {
@@ -66,7 +66,7 @@ export default function ComplaintSuccess({
       ctx.drawImage(img, 0, 0);
       
       const link = document.createElement('a');
-      link.download = `complaint-${complaintId}.png`;
+      link.download = `ticket-${complaintId}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     };
@@ -103,7 +103,7 @@ export default function ComplaintSuccess({
           transition={{ delay: 0.2 }}
           className="text-2xl font-bold text-gray-900 mb-2"
         >
-          Complaint Submitted!
+          Ticket Submitted!
         </motion.h1>
         
         <motion.p
@@ -112,7 +112,7 @@ export default function ComplaintSuccess({
           transition={{ delay: 0.3 }}
           className="text-gray-600"
         >
-          Your complaint has been registered successfully.
+          Your ticket has been registered successfully.
         </motion.p>
       </div>
 
@@ -123,7 +123,7 @@ export default function ComplaintSuccess({
         transition={{ delay: 0.4 }}
         className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 text-white mb-6"
       >
-        <p className="text-primary-100 text-sm mb-2">Your Complaint ID</p>
+        <p className="text-primary-100 text-sm mb-2">Your Ticket ID</p>
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold font-mono tracking-wider">
             {complaintId}
@@ -202,7 +202,7 @@ export default function ComplaintSuccess({
           onClick={onNewComplaint}
           className="w-full py-3 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition"
         >
-          Submit Another Complaint
+          Submit Another Ticket
         </button>
         <button
           onClick={() => navigate('/')}

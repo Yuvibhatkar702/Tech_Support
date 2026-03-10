@@ -6,16 +6,16 @@ const { sendEscalationEmail } = require('./emailService');
 
 // SLA Configuration (in hours)
 const SLA_CONFIG = {
-  road_damage: { target: 72, warning: 48 },
-  street_light: { target: 48, warning: 24 },
-  water_supply: { target: 24, warning: 12 },
-  sewage: { target: 24, warning: 12 },
-  garbage: { target: 24, warning: 12 },
-  encroachment: { target: 168, warning: 120 }, // 7 days
-  noise_pollution: { target: 48, warning: 24 },
-  illegal_construction: { target: 168, warning: 120 },
-  traffic: { target: 72, warning: 48 },
-  other: { target: 72, warning: 48 },
+  'Homepage':           { target: 24, warning: 18 },
+  'Admission Portal':   { target: 24, warning: 18 },
+  'Examination Portal': { target: 24, warning: 18 },
+  'Student Portal':     { target: 24, warning: 18 },
+  'Faculty Portal':     { target: 24, warning: 18 },
+  'LMS':                { target: 24, warning: 18 },
+  'Payment Gateway':    { target: 24, warning: 18 },
+  'Email System':       { target: 24, warning: 18 },
+  'Mobile App':         { target: 24, warning: 18 },
+  'Other':              { target: 24, warning: 18 },
 };
 
 // Escalation levels and their admin roles
@@ -27,7 +27,7 @@ const ESCALATION_LEVELS = {
 
 // Calculate target resolution date based on category
 const calculateTargetDate = (category, createdAt) => {
-  const slaHours = SLA_CONFIG[category]?.target || 72;
+  const slaHours = SLA_CONFIG[category]?.target || 24;
   const baseDate = createdAt ? new Date(createdAt) : new Date();
   
   // Ensure we have a valid date

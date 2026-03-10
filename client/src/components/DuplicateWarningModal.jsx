@@ -93,7 +93,7 @@ export default function DuplicateWarningModal({
 
             {/* Message */}
             <p className="mt-4 text-sm text-gray-600">
-              Are you sure this is a new issue? If it's the same problem, the existing complaint is already being addressed.
+              Are you sure this is a new issue? If it's the same problem, the existing ticket is already being addressed.
             </p>
           </div>
 

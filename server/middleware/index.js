@@ -1,5 +1,5 @@
 const { auth, authorize, checkPermission, optionalAuth } = require('./auth');
-const { upload, handleUploadError } = require('./upload');
+const { upload, uploadTicketFiles, handleUploadError } = require('./upload');
 const validate = require('./validate');
 
 module.exports = {
@@ -8,6 +8,7 @@ module.exports = {
   checkPermission,
   optionalAuth,
   upload,
+  uploadTicketFiles,
   handleUploadError,
   validate,
 };

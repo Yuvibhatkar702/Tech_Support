@@ -54,7 +54,7 @@ export default function ConsentBanner({ onAccept, onDecline }) {
           {/* Summary */}
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
             <p className="text-sm text-blue-800">
-              {t('consent.summary', 'To submit a complaint, we need access to your camera for photo evidence and your location to identify the issue area. Your data is securely stored and only used for complaint resolution.')}
+              {t('consent.summary', 'To submit a ticket, we need access to your camera for screenshots and your location to help identify the issue. Your data is securely stored and only used for ticket resolution.')}
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default function ConsentBanner({ onAccept, onDecline }) {
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">
-                  {t('consent.location_desc', 'To automatically detect and tag the complaint location')}
+                  {t('consent.location_desc', 'To automatically detect and tag the ticket location')}
                 </p>
               </div>
             </label>
@@ -118,7 +118,7 @@ export default function ConsentBanner({ onAccept, onDecline }) {
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">
-                  {t('consent.data_desc', 'To store and process your complaint for resolution')}
+                  {t('consent.data_desc', 'To store and process your ticket for resolution')}
                 </p>
               </div>
             </label>
@@ -154,19 +154,19 @@ export default function ConsentBanner({ onAccept, onDecline }) {
                     <h4 className="font-medium text-gray-900 mb-1">
                       {t('consent.storage_title', 'Data Storage')}
                     </h4>
-                    <p>{t('consent.storage_desc', 'Your complaint data is stored securely in encrypted databases. Photos are compressed to save storage.')}</p>
+                    <p>{t('consent.storage_desc', 'Your ticket data is stored securely in encrypted databases. Screenshots are compressed to save storage.')}</p>
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1">
                       {t('consent.sharing_title', 'Data Sharing')}
                     </h4>
-                    <p>{t('consent.sharing_desc', 'Your data is shared only with relevant government departments responsible for resolving your complaint.')}</p>
+                    <p>{t('consent.sharing_desc', 'Your data is shared only with relevant support teams responsible for resolving your ticket.')}</p>
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1">
                       {t('consent.retention_title', 'Data Retention')}
                     </h4>
-                    <p>{t('consent.retention_desc', 'Complaint data is retained for 5 years as per government records policy. You can request deletion after case closure.')}</p>
+                    <p>{t('consent.retention_desc', 'Ticket data is retained for 5 years as per records policy. You can request deletion after case closure.')}</p>
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1">

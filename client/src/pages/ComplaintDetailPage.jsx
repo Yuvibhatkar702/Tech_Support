@@ -58,12 +58,12 @@ export default function ComplaintDetailPage() {
           internalNotes: '',
         });
       } else {
-        addToast('Complaint not found', 'error');
+        addToast('Ticket not found', 'error');
         navigate('/admin/dashboard');
       }
     } catch (error) {
       console.error('Error fetching complaint:', error);
-      addToast('Failed to fetch complaint', 'error');
+      addToast('Failed to fetch ticket', 'error');
       navigate('/admin/dashboard');
     } finally {
       setIsLoading(false);
@@ -80,13 +80,13 @@ export default function ComplaintDetailPage() {
     try {
       const result = await adminApi.updateComplaint(id, updateForm);
       if (result.success) {
-        addToast('Complaint updated successfully', 'success');
+        addToast('Ticket updated successfully', 'success');
         setShowUpdateModal(false);
         fetchComplaint();
       }
     } catch (error) {
       console.error('Error updating complaint:', error);
-      addToast('Failed to update complaint', 'error');
+      addToast('Failed to update ticket', 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -105,7 +105,7 @@ export default function ComplaintDetailPage() {
   if (!complaint) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-600">Complaint not found</p>
+        <p className="text-gray-600">Ticket not found</p>
       </div>
     );
   }
@@ -129,13 +129,13 @@ export default function ComplaintDetailPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-5">
-        {/* ── Complaint Header Card ─────────────────────────── */}
+        {/* ── Ticket Header Card ─────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* Top banner */}
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-primary-200 text-xs uppercase tracking-wide">Complaint ID</p>
+                <p className="text-primary-200 text-xs uppercase tracking-wide">Ticket ID</p>
                 <h1 className="text-2xl font-bold font-mono text-white">
                   {complaint.complaintId}
                 </h1>
@@ -226,14 +226,14 @@ export default function ComplaintDetailPage() {
             )}
           </div>
 
-          {/* Complaint Image */}
+          {/* Screenshot */}
           {complaint.image?.filePath ? (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-3">Complaint Photo</h2>
+              <h2 className="text-base font-semibold text-gray-900 mb-3">Screenshot</h2>
               <div className="rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
                 <img
                   src={`${API_BASE}/${complaint.image.filePath.replace(/\\/g, '/')}`}
-                  alt="Complaint"
+                  alt="Screenshot"
                   className="w-full max-h-80 object-contain cursor-pointer hover:opacity-90 transition"
                   onClick={() => window.open(`${API_BASE}/${complaint.image.filePath.replace(/\\/g, '/')}`, '_blank')}
                 />
@@ -288,7 +288,7 @@ export default function ComplaintDetailPage() {
               <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 p-6">
                 <h2 className="text-base font-semibold text-yellow-800 mb-2">⚠️ Duplicate</h2>
                 <p className="text-sm text-yellow-700">
-                  This is a duplicate of complaint{' '}
+                  This is a duplicate of ticket{' '}
                   <Link to={`/admin/complaints/${complaint.duplicateOf}`} className="font-medium underline">
                     {complaint.duplicateOf}
                   </Link>
@@ -343,7 +343,7 @@ export default function ComplaintDetailPage() {
       {showUpdateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold mb-4">Update Complaint</h2>
+            <h2 className="text-xl font-semibold mb-4">Update Ticket</h2>
             
             <div className="space-y-4">
               <div>

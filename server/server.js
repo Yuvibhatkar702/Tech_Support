@@ -1,4 +1,7 @@
 require('dotenv').config();
+// Use Google DNS for SRV lookups (fixes local DNS issues with MongoDB Atlas)
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -78,7 +81,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files (for serving images)
-app.use('/uploads', express.static(path.join(__dirname, config.uploadDir)));
+const uploadsPath = process.env.VERCEL
+  ? '/tmp/uploads'
+  : path.join(__dirname, config.uploadDir);
+app.use('/uploads', express.static(uploadsPath));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -87,6 +93,50 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: config.nodeEnv,
   });
+});
+
+// Database connection and server start
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    await mongoose.connect(config.mongoUri);
+    isConnected = true;
+    console.log('✅ Connected to MongoDB');
+
+    // Create indexes
+    const { Complaint, Admin, AuditLog, Department, CategoryMapping } = require('./models');
+    
+    try {
+      await mongoose.connection.collection('complaints').dropIndex('user.phoneNumber_1');
+    } catch (e) {
+      // Index might not exist, ignore error
+    }
+    
+    await Complaint.createIndexes();
+    await Admin.createIndexes();
+    await AuditLog.createIndexes();
+    await Department.createIndexes();
+    await CategoryMapping.createIndexes();
+    console.log('✅ Database indexes created');
+
+    await autoSeedDepartments(Department, Admin, CategoryMapping);
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    isConnected = false;
+    throw error;
+  }
+};
+
+// Ensure DB is connected before handling API requests (needed for Vercel serverless)
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Database connection failed' });
+  }
 });
 
 // API Routes
@@ -395,32 +445,9 @@ async function autoSeedDepartments(Department, Admin, CategoryMapping) {
   }
 }
 
-// Database connection and server start
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(config.mongoUri);
-    console.log('✅ Connected to MongoDB');
-
-    // Create indexes (drop conflicting indexes first)
-    const { Complaint, Admin, AuditLog, Department, CategoryMapping } = require('./models');
-    
-    try {
-      // Drop the old phoneNumber index if it exists with different options
-      await mongoose.connection.collection('complaints').dropIndex('user.phoneNumber_1');
-    } catch (e) {
-      // Index might not exist, ignore error
-    }
-    
-    await Complaint.createIndexes();
-    await Admin.createIndexes();
-    await AuditLog.createIndexes();
-    await Department.createIndexes();
-    await CategoryMapping.createIndexes();
-    console.log('✅ Database indexes created');
-
-    // ── Auto-seed: if departments/officials have old generic data, re-seed ──
-    await autoSeedDepartments(Department, Admin, CategoryMapping);
+    await connectDB();
 
     // Initialize Socket.IO
     initializeSocket(server);
@@ -462,6 +489,9 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-startServer();
+// Only start the full server (with listen, Socket.IO, cron) when NOT on Vercel
+if (!process.env.VERCEL) {
+  startServer();
+}
 
 module.exports = app;

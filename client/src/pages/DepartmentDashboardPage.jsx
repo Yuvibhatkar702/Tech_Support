@@ -249,14 +249,12 @@ export default function DepartmentDashboardPage() {
                           ✓ Assigned
                         </button>
                       )}
-                      {c.status === 'closed' && (
-                        <button
-                          onClick={() => setDetailComplaint(c)}
-                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 transition font-medium"
-                        >
-                          View Details
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setDetailComplaint(c)}
+                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 transition font-medium"
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
 
@@ -274,15 +272,24 @@ export default function DepartmentDashboardPage() {
                       <div className="w-24 h-24 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-300 text-xs border">No image</div>
                     )}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-sm text-gray-800"><span className="font-semibold">Category:</span> {c.category}</p>
+                      {c.websiteName && <p className="text-sm text-gray-800"><span className="font-semibold">Website:</span> {c.websiteName}</p>}
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Page/Module:</span> {c.category}</p>
+                      {c.issueType && <p className="text-sm text-gray-800"><span className="font-semibold">Issue Type:</span> {c.issueType}</p>}
+                      {c.priority && (
+                        <p className="text-sm text-gray-800">
+                          <span className="font-semibold">Priority:</span>{' '}
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                            c.priority === 'critical' ? 'bg-red-100 text-red-800' :
+                            c.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                            c.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+                          }`}>{c.priority}</span>
+                        </p>
+                      )}
                       <p className="text-sm text-gray-800"><span className="font-semibold">Phone:</span> {c.user?.phoneNumber || '—'}</p>
                       {c.user?.name && <p className="text-sm text-gray-800"><span className="font-semibold">Name:</span> {c.user.name}</p>}
-                      <p className="text-sm text-gray-800"><span className="font-semibold">Officer:</span> {c.assignedTo?.name || '—'}</p>
+                      <p className="text-sm text-gray-800"><span className="font-semibold">Developer:</span> {c.assignedTo?.name || '—'}</p>
                       {c.description && (
-                        <p className="text-sm text-gray-600"><span className="font-semibold text-gray-800">Description:</span> {c.description}</p>
-                      )}
-                      {c.address?.fullAddress && (
-                        <p className="text-sm text-gray-500"><span className="font-semibold text-gray-700">Address:</span> {c.address.fullAddress}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2"><span className="font-semibold text-gray-800">Description:</span> {c.description}</p>
                       )}
                     </div>
                   </div>
@@ -337,7 +344,7 @@ export default function DepartmentDashboardPage() {
 
         {/* Officers */}
         <div className="bg-white rounded-xl shadow-sm p-5">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Officers ({officers.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Developers ({officers.length})</h2>
           <div className="flex flex-wrap gap-3">
             {officers.map((o) => {
               const ratingInfo = stats?.officerRatings?.find(r => r.officerId === o._id);
@@ -349,7 +356,7 @@ export default function DepartmentDashboardPage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{o.name}</p>
                     <p className="text-xs text-gray-500">
-                      {o.designation || 'Officer'}
+                      {o.designation || 'Developer'}
                       {ratingInfo && (
                         <span className="ml-1 text-yellow-600 font-medium">⭐ {ratingInfo.avgRating} ({ratingInfo.totalRatings})</span>
                       )}
@@ -367,14 +374,14 @@ export default function DepartmentDashboardPage() {
                 </div>
               );
             })}
-            {officers.length === 0 && <p className="text-sm text-gray-400">No officers assigned yet</p>}
+            {officers.length === 0 && <p className="text-sm text-gray-400">No developers assigned yet</p>}
           </div>
         </div>
 
         {/* Officer Ratings Leaderboard */}
         {stats?.officerRatings && stats.officerRatings.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Officer Ratings Leaderboard</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Developer Ratings Leaderboard</h2>
             <div className="space-y-3">
               {stats.officerRatings.map((officer, index) => (
                 <div key={officer.officerId} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition">
@@ -438,7 +445,7 @@ export default function DepartmentDashboardPage() {
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Complaint Details</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Ticket Details</h3>
                   <p className="text-sm text-gray-500 font-mono">{d.complaintId}</p>
                 </div>
                 <button onClick={() => setDetailComplaint(null)} className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-600">
@@ -466,11 +473,29 @@ export default function DepartmentDashboardPage() {
               {/* Basic Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Category</p>
+                  <p className="text-xs text-gray-500 mb-1">Website Name</p>
+                  <p className="text-sm font-semibold text-gray-900">{d.websiteName || '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 mb-1">Page / Module</p>
                   <p className="text-sm font-semibold text-gray-900">{d.category || '—'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Complainant</p>
+                  <p className="text-xs text-gray-500 mb-1">Issue Type</p>
+                  <p className="text-sm font-semibold text-gray-900">{d.issueType || '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 mb-1">Priority</p>
+                  <p className="text-sm font-semibold">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      d.priority === 'critical' ? 'bg-red-100 text-red-800' :
+                      d.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                      d.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+                    }`}>{d.priority || 'medium'}</span>
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 mb-1">Submitted By</p>
                   <p className="text-sm font-semibold text-gray-900">{d.user?.name || d.user?.phoneNumber || '—'}</p>
                   {d.user?.name && d.user?.phoneNumber && (
                     <p className="text-xs text-gray-500">📞 {d.user.phoneNumber}</p>
@@ -480,16 +505,45 @@ export default function DepartmentDashboardPage() {
                   <p className="text-xs text-gray-500 mb-1">Filed On</p>
                   <p className="text-sm font-semibold text-gray-900">{createdTime.toLocaleDateString()} {createdTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">Address</p>
-                  <p className="text-sm font-medium text-gray-800 truncate">{d.address?.fullAddress || '—'}</p>
-                </div>
               </div>
 
               {d.description && (
                 <div className="bg-gray-50 rounded-xl p-3 mb-4">
                   <p className="text-xs text-gray-500 mb-1">Description</p>
-                  <p className="text-sm text-gray-800">{d.description}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{d.description}</p>
+                </div>
+              )}
+
+              {/* Additional Files */}
+              {d.additionalFiles && d.additionalFiles.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                  <p className="text-xs text-gray-500 mb-2">Additional Files ({d.additionalFiles.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {d.additionalFiles.map((file, i) => {
+                      const isImage = file.mimeType?.startsWith('image/');
+                      const fileSrc = `${API_BASE}/${(file.filePath || '').replace(/\\/g, '/')}`;
+                      return isImage ? (
+                        <img
+                          key={i}
+                          src={fileSrc}
+                          alt={file.originalName || `File ${i + 1}`}
+                          className="w-20 h-20 rounded-lg object-cover cursor-pointer border hover:opacity-80 transition"
+                          onClick={() => setImagePreview(fileSrc)}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <a
+                          key={i}
+                          href={fileSrc}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-blue-50 transition text-sm text-blue-700"
+                        >
+                          📄 {file.originalName || `File ${i + 1}`}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -498,7 +552,7 @@ export default function DepartmentDashboardPage() {
                 <h4 className="text-sm font-bold text-gray-900 mb-3">📋 Resolution Summary</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                    <p className="text-xs text-blue-600 mb-1">Assigned Officer</p>
+                    <p className="text-xs text-blue-600 mb-1">Assigned Developer</p>
                     <p className="text-sm font-bold text-blue-900">{d.assignedTo?.name || '—'}</p>
                     {d.assignedTo?.email && <p className="text-xs text-blue-600">{d.assignedTo.email}</p>}
                     {d.assignedTo?.phone && <p className="text-xs text-blue-600">{d.assignedTo.phone}</p>}
@@ -526,7 +580,7 @@ export default function DepartmentDashboardPage() {
               {/* Resolution Remarks & Proof */}
               {d.resolution?.description && (
                 <div className="bg-green-50 rounded-xl p-3 border border-green-100 mb-4">
-                  <p className="text-xs text-green-700 font-semibold mb-1">Officer's Remarks</p>
+                  <p className="text-xs text-green-700 font-semibold mb-1">Developer's Remarks</p>
                   <p className="text-sm text-green-900">{d.resolution.description}</p>
                 </div>
               )}
@@ -625,18 +679,18 @@ export default function DepartmentDashboardPage() {
       {assignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Assign Officer</h3>
-            <p className="text-sm text-gray-500 mb-4">Complaint: {selectedComplaint?.complaintId}</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Assign Developer</h3>
+            <p className="text-sm text-gray-500 mb-4">Ticket: {selectedComplaint?.complaintId}</p>
 
             <select
               value={selectedOfficer}
               onChange={(e) => setSelectedOfficer(e.target.value)}
               className="w-full px-4 py-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Select officer…</option>
+              <option value="">Select developer…</option>
               {officers.map((o) => (
                 <option key={o._id} value={o._id}>
-                  {o.name} — {o.designation || 'Officer'} ({o.activeComplaints || 0} active)
+                  {o.name} — {o.designation || 'Developer'} ({o.activeComplaints || 0} active)
                 </option>
               ))}
             </select>

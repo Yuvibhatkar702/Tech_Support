@@ -11,7 +11,7 @@ export default function HomePage() {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')`,
+          backgroundImage: `url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')`,
         }}
       />
       {/* Gradient Overlay for better text readability */}
@@ -24,7 +24,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-              <span className="text-2xl">🏛️</span>
+              <span className="text-2xl">🛠️</span>
             </div>
             <span className="text-white font-bold text-lg hidden sm:block">
               {t('app_name')}
@@ -75,14 +75,14 @@ export default function HomePage() {
               className="text-white/80 hover:text-white text-sm font-medium flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
             >
               <span>🔐</span>
-              Citizen Portal
+              User Portal
             </Link>
             <Link
               to="/official-login"
               className="text-white/80 hover:text-white text-sm font-medium flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
             >
               <span>🏢</span>
-              Official Login
+              Staff Login
             </Link>
           </div>
 
@@ -108,8 +108,7 @@ export default function HomePage() {
               <div className="text-center">
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">{t('home_step2')}</h3>
@@ -133,7 +132,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="py-6 px-4 text-center text-white/60 text-sm">
-        <p>© 2026 Government Grievance Portal. All rights reserved.</p>
+        <p>© 2026 Tech Support Portal. All rights reserved.</p>
       </footer>
       </div>
     </div>

@@ -75,8 +75,8 @@ export default function OfficialLoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white">Official Portal</h1>
-          <p className="text-blue-300 mt-2">Municipal Grievance Management System</p>
+          <h1 className="text-3xl font-bold text-white">Staff Portal</h1>
+          <p className="text-blue-300 mt-2">Technical Support Ticket Management System</p>
         </div>
 
         {/* Login Form */}
@@ -126,7 +126,7 @@ export default function OfficialLoginPage() {
           <div className="mt-6 pt-5 border-t border-white/10">
             <p className="text-xs text-blue-300 text-center mb-3">Authorized for</p>
             <div className="flex flex-wrap justify-center gap-2">
-              {['Admin', 'Department Head', 'Officer'].map((role) => (
+              {['Admin', 'Support', 'Developer'].map((role) => (
                 <span key={role} className="px-3 py-1 text-xs bg-blue-500/20 text-blue-200 rounded-full border border-blue-400/30">
                   {role}
                 </span>
@@ -138,7 +138,7 @@ export default function OfficialLoginPage() {
         {/* Footer links */}
         <div className="text-center mt-6 space-y-2">
           <Link to="/" className="text-blue-300 hover:text-white text-sm transition">
-            ← Back to Public Portal
+            ← Back to Support Portal
           </Link>
         </div>
       </div>

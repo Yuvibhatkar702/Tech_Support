@@ -5,23 +5,19 @@
  */
 
 const RESOLUTION_CONFIG = {
-  'Damaged Road Issue':       { days: 5, label: '3-5 working days' },
-  'Garbage and Trash Issue':  { days: 2, label: '1-2 working days' },
-  'Street Light Issue':       { days: 3, label: '2-3 working days' },
-  'Fallen Trees':             { days: 3, label: '1-3 working days' },
-  'Illegal Drawing on Walls': { days: 6, label: '4-6 working days' },
-  'Other':                    { days: 5, label: '3-5 working days' },
-
-  // Legacy
-  'DamagedRoads':             { days: 5, label: '3-5 working days' },
-  'ElectricityIssues':        { days: 3, label: '2-3 working days' },
-  'GarbageAndSanitation':     { days: 2, label: '1-2 working days' },
-  'road_damage':              { days: 5, label: '3-5 working days' },
-  'street_light':             { days: 3, label: '2-3 working days' },
-  'garbage':                  { days: 2, label: '1-2 working days' },
+  'Homepage':                 { days: 1, label: '24h' },
+  'Admission Portal':         { days: 1, label: '24h' },
+  'Examination Portal':       { days: 1, label: '24h' },
+  'Student Portal':           { days: 1, label: '24h' },
+  'Faculty Portal':           { days: 1, label: '24h' },
+  'LMS':                      { days: 1, label: '24h' },
+  'Payment Gateway':          { days: 1, label: '24h' },
+  'Email System':             { days: 1, label: '24h' },
+  'Mobile App':               { days: 1, label: '24h' },
+  'Other':                    { days: 1, label: '24h' },
 };
 
-const DEFAULT_RESOLUTION = { days: 5, label: '3-5 working days' };
+const DEFAULT_RESOLUTION = { days: 1, label: '24h' };
 
 /**
  * Get full resolution config for a category.

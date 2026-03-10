@@ -188,7 +188,7 @@ export default function OfficerDashboardPage() {
       }
       const res = await officialApi.resolveComplaint(selectedComplaint._id, formData);
       if (res.success) {
-        addToast('Complaint closed', 'success');
+        addToast('Ticket closed', 'success');
         setCloseModalOpen(false);
         setSelectedComplaint(null);
         setCloseRemarks('');
@@ -215,7 +215,7 @@ export default function OfficerDashboardPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Officer Dashboard</h1>
+            <h1 className="text-xl font-bold text-gray-900">Developer Dashboard</h1>
             <p className="text-sm text-gray-500">Welcome, {official?.name}</p>
           </div>
           <button onClick={handleLogout} className="px-4 py-2 text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition">
@@ -271,12 +271,12 @@ export default function OfficerDashboardPage() {
           ))}
         </div>
 
-        {/* Complaints */}
+        {/* Tickets */}
         <div className="space-y-4">
           {loading ? (
             <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">Loading…</div>
           ) : complaints.length === 0 ? (
-            <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">No complaints found</div>
+            <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">No tickets found</div>
           ) : (
             complaints.map((c) => {
               // If complaint was reopened and has reopen proof, show that instead of original
@@ -381,7 +381,7 @@ export default function OfficerDashboardPage() {
                       disabled={actionLoading === c._id}
                       className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
                     >
-                      Close Complaint
+                      Close Ticket
                     </button>
                   )}
                 </div>
@@ -410,11 +410,11 @@ export default function OfficerDashboardPage() {
         </div>
       )}
 
-      {/* Close Complaint Modal */}
+      {/* Close Ticket Modal */}
       {closeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Close Complaint</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Close Ticket</h3>
             <p className="text-sm text-gray-500 mb-4">{selectedComplaint?.complaintId}</p>
 
             <div className="space-y-4">

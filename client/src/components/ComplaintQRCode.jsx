@@ -23,7 +23,7 @@ export default function ComplaintQRCode({ complaintId, size = 150, showDownload 
       ctx.drawImage(img, 0, 0);
       
       const link = document.createElement('a');
-      link.download = `complaint-${complaintId}.png`;
+      link.download = `ticket-${complaintId}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     };
@@ -51,7 +51,7 @@ export default function ComplaintQRCode({ complaintId, size = 150, showDownload 
         </div>
         
         <p className="mt-3 text-sm text-gray-600 text-center">
-          {t('qr.scan_to_track', 'Scan to track your complaint')}
+          {t('qr.scan_to_track', 'Scan to track your ticket')}
         </p>
         
         <p className="font-mono text-lg font-bold text-primary-600 mt-1">

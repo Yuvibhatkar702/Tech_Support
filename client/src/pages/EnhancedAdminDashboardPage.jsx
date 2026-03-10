@@ -359,7 +359,7 @@ function ManagePanel({ onDepartmentChange }) {
         : officialApi.createOfficer;
       const res = await fn(officialForm);
       if (res.success) {
-        addToast(`${officialForm.role === 'department_head' ? 'Department Head' : 'Officer'} created (default password: Pass@123)`, 'success');
+        addToast(`${officialForm.role === 'department_head' ? 'Support Lead' : 'Developer'} created (default password: Pass@123)`, 'success');
         setOfficialForm(OFFICIAL_FORM_INITIAL);
         setShowOfficialForm(false);
         fetchData();
@@ -396,7 +396,7 @@ function ManagePanel({ onDepartmentChange }) {
     }
   };
 
-  const roleLabel = { department_head: 'Dept Head', officer: 'Officer' };
+  const roleLabel = { department_head: 'Support', officer: 'Developer' };
 
   return (
     <div className="space-y-6">
@@ -666,11 +666,11 @@ function ManagePanel({ onDepartmentChange }) {
                     <div className="flex gap-4 mt-1">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="officialRole" value="department_head" checked={officialForm.role === 'department_head'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
-                        <span className="text-sm text-gray-700">Department Head</span>
+                        <span className="text-sm text-gray-700">Support Lead</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="officialRole" value="officer" checked={officialForm.role === 'officer'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
-                        <span className="text-sm text-gray-700">Officer</span>
+                        <span className="text-sm text-gray-700">Developer</span>
                       </label>
                     </div>
                   </div>
@@ -694,7 +694,7 @@ function ManagePanel({ onDepartmentChange }) {
 
               <p className="text-xs text-amber-600">Default login password: <span className="font-mono font-bold">Pass@123</span></p>
 
-              <button type="submit" className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">Create {officialForm.role === 'department_head' ? 'Department Head' : 'Officer'}</button>
+              <button type="submit" className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">Create {officialForm.role === 'department_head' ? 'Support Lead' : 'Developer'}</button>
             </form>
           )}
 
@@ -725,7 +725,7 @@ function ManagePanel({ onDepartmentChange }) {
                       <span className="text-xs text-gray-500 font-medium">{group.heads.length + group.officers.length} member{group.heads.length + group.officers.length !== 1 ? 's' : ''}</span>
                     </div>
 
-                    {/* Department Head(s) */}
+                    {/* Support Lead(s) */}
                     {group.heads.map(h => (
                       <div key={h._id} className="px-4 py-3 bg-purple-50 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -734,7 +734,7 @@ function ManagePanel({ onDepartmentChange }) {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">{h.name}</p>
-                            <p className="text-xs text-gray-500">{h.designation || 'Department Head'}</p>
+                            <p className="text-xs text-gray-500">{h.designation || 'Support Lead'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
@@ -752,7 +752,7 @@ function ManagePanel({ onDepartmentChange }) {
                       </div>
                     ))}
 
-                    {/* Officers */}
+                    {/* Developers */}
                     {group.officers.length > 0 && (
                       <div className="divide-y divide-gray-100">
                         {group.officers.map((o, idx) => (
@@ -763,14 +763,14 @@ function ManagePanel({ onDepartmentChange }) {
                               </div>
                               <div>
                                 <p className="font-medium text-gray-800 text-sm">{o.name}</p>
-                                <p className="text-xs text-gray-500">{o.designation || 'Officer'}</p>
+                                <p className="text-xs text-gray-500">{o.designation || 'Developer'}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 text-xs">
                               <span className="hidden sm:inline text-gray-500">{o.email}</span>
                               <span className="hidden sm:inline text-gray-400">|</span>
                               <span className="hidden sm:inline text-gray-500">{o.phone || '—'}</span>
-                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Officer</span>
+                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Developer</span>
                               <span className={`px-2 py-0.5 rounded-full ${o.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 {o.isActive ? 'Active' : 'Inactive'}
                               </span>
@@ -1141,7 +1141,7 @@ export default function EnhancedAdminDashboardPage() {
             <button
               onClick={() => {
                 if (!complaints.length) return;
-                const headers = ['Complaint ID','Category','Status','Priority','Date','Location','Phone','Description'];
+                const headers = ['Ticket ID','Category','Status','Priority','Date','Location','Phone','Description'];
                 const rows = complaints.map(c => [
                   c.complaintId,
                   c.category,
@@ -1157,7 +1157,7 @@ export default function EnhancedAdminDashboardPage() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `complaints_${new Date().toISOString().slice(0,10)}.csv`;
+                a.download = `tickets_${new Date().toISOString().slice(0,10)}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -1176,7 +1176,7 @@ export default function EnhancedAdminDashboardPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Complaint ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ticket ID</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('category')}</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('priority')}</th>

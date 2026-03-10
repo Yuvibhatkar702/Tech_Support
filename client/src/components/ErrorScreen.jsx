@@ -43,7 +43,7 @@ const errorTypes = {
       'Check your internet connection',
       'Try switching between WiFi and mobile data',
       'Wait a moment and try again',
-      'Your complaint will be saved for offline submission',
+      'Your ticket will be saved for offline submission',
     ],
   },
   upload_error: {

@@ -23,54 +23,50 @@ const complaintSchema = new mongoose.Schema({
     },
   },
   
-  // Complaint Details
+  // Ticket Details
+  websiteName: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+
   category: {
     type: String,
     required: true,
-    enum: [
-      // Current categories (6)
-      'Damaged Road Issue',
-      'Fallen Trees',
-      'Garbage and Trash Issue',
-      'Illegal Drawing on Walls',
-      'Street Light Issue',
-      'Other',
-      // Legacy categories (for backward compatibility with existing data)
-      'DamagedRoads',
-      'ElectricityIssues',
-      'GarbageAndSanitation',
-      'road_damage',
-      'street_light',
-      'water_supply',
-      'sewage',
-      'garbage',
-      'encroachment',
-      'noise_pollution',
-      'illegal_construction',
-      'traffic',
-      'other'
-    ],
     index: true,
+  },
+
+  issueType: {
+    type: String,
+    enum: ['bug', 'error', 'page_not_loading', 'login_issue', 'performance', 'ui_ux', 'data_issue', 'other'],
+    default: 'bug',
   },
   
   description: {
     type: String,
     maxlength: 2000,
   },
+
+  // Additional file attachments
+  additionalFiles: [{
+    originalName: String,
+    fileName: String,
+    filePath: String,
+    mimeType: String,
+    size: Number,
+  }],
   
-  // Location Data
+  // Location Data (optional for tech support tickets)
   location: {
     type: {
       type: String,
       enum: ['Point'],
-      default: 'Point',
     },
     coordinates: {
       type: [Number], // [longitude, latitude]
-      required: true,
     },
-    accuracy: Number, // GPS accuracy in meters
-    timestamp: Date,  // When GPS was captured
+    accuracy: Number,
+    timestamp: Date,
   },
   
   // Resolved Address from Reverse Geocoding
@@ -378,12 +374,8 @@ const complaintSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Geospatial index for location-based queries
-complaintSchema.index({ location: '2dsphere' });
-
-// Compound index for duplicate detection
+// Compound index for queries
 complaintSchema.index({ 
-  'location.coordinates': '2dsphere',
   category: 1,
   createdAt: -1 
 });
@@ -410,7 +402,7 @@ complaintSchema.statics.generateComplaintId = async function() {
   });
   
   const sequence = (count + 1).toString().padStart(4, '0');
-  return `GRV${year}${month}${day}${sequence}`;
+  return `TKT${year}${month}${day}${sequence}`;
 };
 
 // Find potential duplicates
@@ -452,6 +444,6 @@ complaintSchema.methods.updateStatus = function(newStatus, adminId, remarks = ''
   return this;
 };
 
-const Complaint = mongoose.model('Complaint', complaintSchema, 'grievances');
+const Complaint = mongoose.model('Complaint', complaintSchema, 'tickets');
 
 module.exports = Complaint;

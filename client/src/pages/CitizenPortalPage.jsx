@@ -437,16 +437,16 @@ export default function CitizenPortalPage() {
           ))}
         </div>
 
-        {/* Complaints List */}
+        {/* Tickets List */}
         <div className="space-y-4">
           {filteredComplaints.length === 0 ? (
             <div className="bg-white rounded-xl p-12 text-center">
-              <p className="text-gray-500">No complaints found</p>
+              <p className="text-gray-500">No tickets found</p>
               <Link
                 to="/submit"
                 className="inline-block mt-4 px-6 py-2 bg-primary-600 text-white rounded-lg"
               >
-                File a Complaint
+                Create a Ticket
               </Link>
             </div>
           ) : (
@@ -462,14 +462,14 @@ export default function CitizenPortalPage() {
           )}
         </div>
 
-        {/* File New Complaint CTA */}
+        {/* New Ticket CTA */}
         <div className="fixed bottom-6 right-6">
           <Link
             to="/submit"
             className="flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors"
           >
             <span className="text-xl">+</span>
-            <span className="font-medium">New Complaint</span>
+            <span className="font-medium">New Ticket</span>
           </Link>
         </div>
       </main>
@@ -579,7 +579,7 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
               to={`/track/${complaint.complaintId}`}
               className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition font-medium"
             >
-              Track Complaint
+              Track Ticket
             </Link>
           </div>
         </div>
@@ -589,7 +589,7 @@ function ComplaintCard({ complaint, onFeedback, t, getStatusColor }) {
           {imgSrc ? (
             <img
               src={imgSrc}
-              alt="Complaint"
+              alt="Screenshot"
               className="w-24 h-24 rounded-lg object-cover cursor-pointer border flex-shrink-0 hover:opacity-80 transition"
               onClick={() => setImagePreview(imgSrc)}
               onError={(e) => { e.target.style.display = 'none'; }}

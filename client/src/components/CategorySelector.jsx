@@ -1,16 +1,16 @@
 import { useTranslation } from 'react-i18next';
 
 const categories = [
-  { id: 'road_damage', icon: '🛣️', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  { id: 'street_light', icon: '💡', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  { id: 'water_supply', icon: '💧', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { id: 'sewage', icon: '🚿', color: 'bg-teal-100 text-teal-700 border-teal-200' },
-  { id: 'garbage', icon: '🗑️', color: 'bg-green-100 text-green-700 border-green-200' },
-  { id: 'encroachment', icon: '🚧', color: 'bg-red-100 text-red-700 border-red-200' },
-  { id: 'noise_pollution', icon: '🔊', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { id: 'illegal_construction', icon: '🏗️', color: 'bg-pink-100 text-pink-700 border-pink-200' },
-  { id: 'traffic', icon: '🚗', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  { id: 'other', icon: '📝', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  { id: 'homepage', icon: '🏠', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { id: 'admission_portal', icon: '🎓', color: 'bg-green-100 text-green-700 border-green-200' },
+  { id: 'examination_portal', icon: '📝', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+  { id: 'student_portal', icon: '👨‍🎓', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { id: 'faculty_portal', icon: '👨‍🏫', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+  { id: 'lms', icon: '📚', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  { id: 'payment_gateway', icon: '💳', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  { id: 'email_system', icon: '📧', color: 'bg-pink-100 text-pink-700 border-pink-200' },
+  { id: 'mobile_app', icon: '📱', color: 'bg-red-100 text-red-700 border-red-200' },
+  { id: 'other', icon: '🔧', color: 'bg-gray-100 text-gray-700 border-gray-200' },
 ];
 
 export default function CategorySelector({ selected, onSelect, value, onChange }) {
