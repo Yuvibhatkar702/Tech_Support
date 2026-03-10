@@ -86,6 +86,19 @@ const uploadsPath = process.env.VERCEL
   : path.join(__dirname, config.uploadDir);
 app.use('/uploads', express.static(uploadsPath));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Tech Support API is running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+    },
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
