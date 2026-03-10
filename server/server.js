@@ -33,6 +33,7 @@ app.use(helmet({
 // CORS configuration
 const PROD_ORIGINS = [
   'https://griviances.vercel.app',
+  'https://tech-support-wwgg-rose.vercel.app',
   config.clientUrl,
 ].filter(Boolean);
 
@@ -50,8 +51,8 @@ app.use(cors({
 
     if (
       allowed.includes(origin) ||
-      // Allow Vercel preview deploys for this project only
-      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin)
+      // Allow Vercel preview deploys for this project
+      /^https:\/\/(griviances|tech-support)[\w-]*\.vercel\.app$/.test(origin)
     ) {
       return callback(null, true);
     }
