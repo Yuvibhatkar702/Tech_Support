@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: grievance-portal-api
+    name: tech-support-api
     runtime: node
     region: oregon
     plan: free
@@ -11,68 +11,22 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5000
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false
       - key: CLIENT_URL
         fromService:
-          name: grievance-portal-client
+          name: tech-support-client
           type: web
           property: host
-      - key: WHATSAPP_API_URL
-        value: https://graph.facebook.com/v18.0
-      - key: WHATSAPP_PHONE_NUMBER_ID
-        sync: false
-      - key: WHATSAPP_ACCESS_TOKEN
-        sync: false
-      - key: WHATSAPP_BUSINESS_ACCOUNT_ID
-        sync: false
-      - key: GEOCODING_API_URL
-        value: https://nominatim.openstreetmap.org/reverse
-      - key: GOOGLE_MAPS_API_KEY
-        sync: false
-      - key: DUPLICATE_RADIUS_METERS
-        value: 100
-      - key: DUPLICATE_TIME_WINDOW_HOURS
-        value: 24
-      - key: MAX_IMAGE_SIZE_MB
-        value: 5
-      - key: COMPRESSED_IMAGE_QUALITY
-        value: 80
-      - key: RATE_LIMIT_WINDOW_MS
-        value: 900000
-      - key: RATE_LIMIT_MAX_REQUESTS
-        value: 100
       - key: UPLOAD_DIR
         value: ./uploads
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
     healthCheckPath: /health
-
-  # AI Model Service (Python FastAPI)
-  - type: web
-    name: grievance-portal-ai
-    runtime: python
-    rootDir: ai_model
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
-    envVars:
-      - key: PYTHONUNBUFFERED
-        value: 1
-    healthCheckPath: /docs
 
   # Frontend Static Site
   - type: web
-    name: grievance-portal-client
+    name: tech-support-client
     runtime: static
     plan: free
     rootDir: client
@@ -81,7 +35,7 @@ services:
     envVars:
       - key: VITE_API_URL
         fromService:
-          name: grievance-portal-api
+          name: tech-support-api
           type: web
           envVarKey: RENDER_EXTERNAL_URL
     headers:

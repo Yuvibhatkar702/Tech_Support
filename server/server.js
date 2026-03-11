@@ -45,16 +45,15 @@ const DEV_ORIGINS = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, Vercel rewrites, etc.)
     if (!origin) return callback(null, true);
 
     const allowed = config.nodeEnv === 'production' ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
 
     if (
       allowed.includes(origin) ||
-      // Allow Vercel preview deploys for this project
       /^https:\/\/tech-support[\w-]*\.vercel\.app$/.test(origin) ||
-      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin)
+      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin) ||
+      /^https:\/\/[\w-]*\.onrender\.com$/.test(origin)
     ) {
       return callback(null, true);
     }

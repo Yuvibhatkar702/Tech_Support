@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { useAuthStore, useOfficialStore } from '../store';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Build API base URL: supports /api (relative), full URL with /api, or server root URL
+const rawUrl = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = rawUrl.endsWith('/api') || rawUrl === '/api' ? rawUrl : `${rawUrl.replace(/\/$/, '')}/api`;
 
 // Create axios instance
 const api = axios.create({
