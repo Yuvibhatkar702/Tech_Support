@@ -402,7 +402,7 @@ complaintSchema.statics.generateComplaintId = async function() {
   });
   
   const sequence = (count + 1).toString().padStart(4, '0');
-  return `TKT${year}${month}${day}${sequence}`;
+  return `GRV${year}${month}${day}${sequence}`;
 };
 
 // Find potential duplicates

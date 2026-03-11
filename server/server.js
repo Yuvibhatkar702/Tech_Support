@@ -33,7 +33,6 @@ app.use(helmet({
 // CORS configuration
 const PROD_ORIGINS = [
   'https://griviances.vercel.app',
-  'https://tech-support-wwgg-rose.vercel.app',
   config.clientUrl,
 ].filter(Boolean);
 
@@ -51,8 +50,8 @@ app.use(cors({
 
     if (
       allowed.includes(origin) ||
-      // Allow Vercel preview deploys for this project
-      /^https:\/\/(griviances|tech-support)[\w-]*\.vercel\.app$/.test(origin)
+      // Allow Vercel preview deploys for this project only
+      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin)
     ) {
       return callback(null, true);
     }
@@ -86,19 +85,6 @@ const uploadsPath = process.env.VERCEL
   ? '/tmp/uploads'
   : path.join(__dirname, config.uploadDir);
 app.use('/uploads', express.static(uploadsPath));
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Tech Support API is running',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      api: '/api',
-    },
-  });
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -213,23 +199,18 @@ app.use((req, res) => {
 // ══════════════════════════════════════════════════════════════════════
 async function autoSeedDepartments(Department, Admin, CategoryMapping) {
   try {
-    // Check: any dept_head with a generic @grievance.com email → stale data
-    const genericHead = await Admin.findOne({
-      role: 'department_head',
-      email: /@grievance\.com$/i,
-    });
-    // Also check: departments that have NO supportedCategories entries
-    const emptyDept = await Department.findOne({
-      $or: [
-        { supportedCategories: { $exists: false } },
-        { supportedCategories: { $size: 0 } },
-      ],
-    });
-    // Also check: completely empty DB (no departments or no heads at all)
+    // Check if tech support data exists
     const deptCount = await Department.countDocuments();
     const headCount = await Admin.countDocuments({ role: 'department_head' });
+    const adminCount = await Admin.countDocuments({ role: 'super_admin' });
 
-    // Also check: broken passwords (double-hashed from previous bug)
+    // Check: any dept_head with old @grievance.com or @gmail.com email → stale data
+    const staleHead = await Admin.findOne({
+      role: 'department_head',
+      email: { $not: /@techsupport\.com$/i },
+    });
+
+    // Check: broken passwords (double-hashed from previous bug)
     let passwordBroken = false;
     if (headCount > 0) {
       const bcrypt = require('bcryptjs');
@@ -243,7 +224,7 @@ async function autoSeedDepartments(Department, Admin, CategoryMapping) {
       }
     }
 
-    const needsSeed = genericHead || emptyDept || deptCount === 0 || headCount === 0 || passwordBroken;
+    const needsSeed = staleHead || deptCount === 0 || headCount === 0 || adminCount === 0 || passwordBroken;
 
     if (!needsSeed) {
       console.log('✅ Departments & officials already seeded correctly');
@@ -253,6 +234,10 @@ async function autoSeedDepartments(Department, Admin, CategoryMapping) {
     console.log('🔄 Stale/missing department data detected — re-seeding…');
 
     const DEFAULT_PASSWORD = 'Pass@123';
+    const ADMIN_PERMISSIONS = {
+      canViewComplaints: true, canUpdateStatus: true, canAssignComplaints: true,
+      canDeleteComplaints: true, canManageAdmins: true, canViewAnalytics: true, canExportData: true,
+    };
     const HEAD_PERMISSIONS = {
       canViewComplaints: true, canUpdateStatus: true, canAssignComplaints: true,
       canDeleteComplaints: false, canManageAdmins: false, canViewAnalytics: true, canExportData: true,
@@ -262,198 +247,73 @@ async function autoSeedDepartments(Department, Admin, CategoryMapping) {
       canDeleteComplaints: false, canManageAdmins: false, canViewAnalytics: false, canExportData: false,
     };
 
-    const DEPARTMENTS = [
-      {
-        name: 'Road Department (PWD)', code: 'road_department',
-        description: 'Public Works Department — handles road damage, potholes, signage, dividers, manholes, and infrastructure issues',
-        priority: 'medium',
-        subcategories: [
-          { name: 'Pothole', sla: '2-3 Days' }, { name: 'Surface Damage', sla: '7-15 Days' },
-          { name: 'Speed Breaker Repair', sla: '3-7 Days' }, { name: 'Missing Road Signboard', sla: '3-5 Days' },
-          { name: 'Divider Damage', sla: '7-15 Days' }, { name: 'Manhole Cover Damage', sla: '1-3 Days' },
-          { name: 'Road Marking / Zebra Crossing', sla: '7-15 Days' },
-        ],
-        head: { name: 'Er. Rajesh Deshmukh', email: 'rajesh.d@gmail.com', phone: '9876500001', designation: 'Road Department / PWD Head' },
-        officers: [
-          { name: 'Er. Amit Kulkarni', email: 'amitk@gmail.com', phone: '9876500002', designation: 'Executive Engineer' },
-          { name: 'Er. Pravin Patil', email: 'pravinp@gmail.com', phone: '9876500003', designation: 'Executive Engineer' },
-          { name: 'Er. Sneha Joshi', email: 'snehaj@gmail.com', phone: '9876500004', designation: 'Assistant Engineer' },
-          { name: 'Er. Nikhil Shinde', email: 'nikhils@gmail.com', phone: '9876500005', designation: 'Assistant Engineer' },
-          { name: 'Er. Rohan Wankhede', email: 'rohanw@gmail.com', phone: '9876500006', designation: 'Junior Engineer' },
-          { name: 'Er. Pooja Kale', email: 'poojak@gmail.com', phone: '9876500007', designation: 'Junior Engineer' },
-          { name: 'Mahesh Pawar', email: 'maheshp@gmail.com', phone: '9876500008', designation: 'Section Officer' },
-          { name: 'Ganesh More', email: 'ganeshm@gmail.com', phone: '9876500009', designation: 'Section Officer' },
-          { name: 'Suresh Thakre', email: 'suresht@gmail.com', phone: '9876500010', designation: 'Senior Clerk' },
-          { name: 'Kavita Bhosale', email: 'kavitab@gmail.com', phone: '9876500011', designation: 'Clerk' },
-          { name: 'Rahul Gawande', email: 'rahulg@gmail.com', phone: '9876500012', designation: 'Clerk' },
-          { name: 'Neha Ingle', email: 'nehai@gmail.com', phone: '9876500013', designation: 'Clerk' },
-        ],
-      },
-      {
-        name: 'Sanitation Department', code: 'sanitation_department',
-        description: 'Solid Waste Management & Sanitation — handles garbage, drainage, public toilets, waterlogging, pest control',
-        priority: 'medium',
-        subcategories: [
-          { name: 'Garbage Not Collected', sla: '1-2 Days' }, { name: 'Drainage Blockage', sla: '2-4 Days' },
-          { name: 'Dead Animal Removal', sla: 'Same Day' }, { name: 'Public Toilet Cleaning', sla: '1 Day' },
-          { name: 'Water Logging (Minor)', sla: '2-5 Days' }, { name: 'Open Drain Cleaning', sla: '2-5 Days' },
-          { name: 'Mosquito Breeding Issue', sla: '2-3 Days' }, { name: 'Broken Dustbin Replacement', sla: '3-7 Days' },
-        ],
-        head: { name: 'Dr. Sunil Patwardhan', email: 'sunilp@gmail.com', phone: '9876500101', designation: 'Health Officer / Sanitation Head' },
-        officers: [
-          { name: 'Dr. Meena Tiwari', email: 'meenat@gmail.com', phone: '9876500102', designation: 'Executive Health Officer' },
-          { name: 'Dr. Ajay Ingole', email: 'ajayi@gmail.com', phone: '9876500103', designation: 'Assistant Health Officer' },
-          { name: 'Rakesh Jadhav', email: 'rakeshj@gmail.com', phone: '9876500104', designation: 'Sanitary Inspector' },
-          { name: 'Lata Bhure', email: 'latab@gmail.com', phone: '9876500105', designation: 'Sanitary Inspector' },
-          { name: 'Shailesh Pande', email: 'shaileshp@gmail.com', phone: '9876500106', designation: 'Ward Supervisor' },
-          { name: 'Pritam Dange', email: 'pritamd@gmail.com', phone: '9876500107', designation: 'Ward Supervisor' },
-          { name: 'Sagar Kadu', email: 'sagark@gmail.com', phone: '9876500108', designation: 'Field Officer' },
-          { name: 'Komal Mahalle', email: 'komalm@gmail.com', phone: '9876500109', designation: 'Field Officer' },
-          { name: 'Vijay Waghmare', email: 'vijayw@gmail.com', phone: '9876500110', designation: 'Senior Clerk' },
-          { name: 'Aarti Rathod', email: 'aartir@gmail.com', phone: '9876500111', designation: 'Clerk' },
-          { name: 'Deepak Meshram', email: 'deepakm@gmail.com', phone: '9876500112', designation: 'Clerk' },
-          { name: 'Swati Rode', email: 'swatir@gmail.com', phone: '9876500113', designation: 'Clerk' },
-        ],
-      },
-      {
-        name: 'Electricity Department', code: 'electricity_department',
-        description: 'Street Light & Electrical Department — handles street lights, wiring, poles, transformers, cables',
-        priority: 'medium',
-        subcategories: [
-          { name: 'Street Light Not Working', sla: '2-3 Days' }, { name: 'Open/Loose Electric Wire', sla: 'Same Day' },
-          { name: 'Electric Pole Damage', sla: '3-7 Days' }, { name: 'Transformer Issue', sla: '1-3 Days' },
-          { name: 'Cable Fault', sla: '1-3 Days' },
-        ],
-        head: { name: 'Er. Vivek Bhandari', email: 'vivekb@gmail.com', phone: '9876500201', designation: 'Electrical Engineer / Dept Head' },
-        officers: [
-          { name: 'Er. Manoj Kapse', email: 'manojk@gmail.com', phone: '9876500202', designation: 'Executive Engineer' },
-          { name: 'Er. Priyanka Dhore', email: 'priyankad@gmail.com', phone: '9876500203', designation: 'Assistant Engineer' },
-          { name: 'Er. Hemant Barve', email: 'hemantb@gmail.com', phone: '9876500204', designation: 'Assistant Engineer' },
-          { name: 'Er. Akash Bhagat', email: 'akashb@gmail.com', phone: '9876500205', designation: 'Junior Engineer' },
-          { name: 'Er. Shweta Raut', email: 'shwetar@gmail.com', phone: '9876500206', designation: 'Junior Engineer' },
-          { name: 'Sanjay Kothari', email: 'sanjayk@gmail.com', phone: '9876500207', designation: 'Electrical Inspector' },
-          { name: 'Nitin Dhok', email: 'nitind@gmail.com', phone: '9876500208', designation: 'Line Supervisor' },
-          { name: 'Amol Rane', email: 'amolr@gmail.com', phone: '9876500209', designation: 'Line Supervisor' },
-          { name: 'Prakash Bhalerao', email: 'prakashb@gmail.com', phone: '9876500210', designation: 'Senior Clerk' },
-          { name: 'Seema Yadav', email: 'seemay@gmail.com', phone: '9876500211', designation: 'Clerk' },
-          { name: 'Rohit Khandekar', email: 'rohitk@gmail.com', phone: '9876500212', designation: 'Clerk' },
-          { name: 'Anita Korde', email: 'anitak@gmail.com', phone: '9876500213', designation: 'Clerk' },
-          { name: 'Sandeep More', email: 'sandeepm@gmail.com', phone: '9876500214', designation: 'Technician' },
-          { name: 'Yogesh Patil', email: 'yogeshp@gmail.com', phone: '9876500215', designation: 'Technician' },
-        ],
-      },
-      {
-        name: 'Garden / Tree Department', code: 'garden_tree_department',
-        description: 'Handles fallen trees, parks, and greenery related issues',
-        priority: 'medium',
-        subcategories: [{ name: 'Fallen Trees', sla: '1-2 Days' }],
-        head: { name: 'Yuvraj Bhatkar', email: 'yuvi@gmail.com', phone: '7767055408', designation: 'Senior Officer' },
-        officers: [
-          { name: 'Rushikesh barwat', email: 'rushi@gmail.com', phone: '1478523698', designation: 'Field Officer' },
-          { name: 'Shrikan Sonikar', email: 'shri@gmail.com', phone: '1452147856', designation: 'Officer' },
-        ],
-      },
-      {
-        name: 'Drainage & Water Department', code: 'drainage_water_department',
-        description: 'Handles drainage blockage, open drains, water logging, and manhole issues',
-        priority: 'high',
-        subcategories: [
-          { name: 'Drainage Blockage', sla: '1 Day' }, { name: 'Open Drain', sla: 'Same Day' },
-          { name: 'Water Logging', sla: '1-2 Days' }, { name: 'Manhole Cover Damage', sla: '2-5 Days' },
-        ],
-        head: null,
-        officers: [],
-      },
-    ];
-
-    // Sub-category → Department mapping
-    const SUB_CATEGORY_MAPPINGS = [
-      { categoryName: 'Pothole', departmentCode: 'road_department', slaDuration: '2-3 Days' },
-      { categoryName: 'Surface Damage', departmentCode: 'road_department', slaDuration: '7-15 Days' },
-      { categoryName: 'Speed Breaker Repair', departmentCode: 'road_department', slaDuration: '3-7 Days' },
-      { categoryName: 'Missing Road Signboard', departmentCode: 'road_department', slaDuration: '3-5 Days' },
-      { categoryName: 'Divider Damage', departmentCode: 'road_department', slaDuration: '7-15 Days' },
-      { categoryName: 'Manhole Cover Damage', departmentCode: 'road_department', slaDuration: '1-3 Days' },
-      { categoryName: 'Road Marking / Zebra Crossing', departmentCode: 'road_department', slaDuration: '7-15 Days' },
-      { categoryName: 'Garbage Not Collected', departmentCode: 'sanitation_department', slaDuration: '1-2 Days' },
-      { categoryName: 'Drainage Blockage', departmentCode: 'sanitation_department', slaDuration: '2-4 Days' },
-      { categoryName: 'Dead Animal Removal', departmentCode: 'sanitation_department', slaDuration: 'Same Day' },
-      { categoryName: 'Public Toilet Cleaning', departmentCode: 'sanitation_department', slaDuration: '1 Day' },
-      { categoryName: 'Water Logging (Minor)', departmentCode: 'sanitation_department', slaDuration: '2-5 Days' },
-      { categoryName: 'Open Drain Cleaning', departmentCode: 'sanitation_department', slaDuration: '2-5 Days' },
-      { categoryName: 'Mosquito Breeding Issue', departmentCode: 'sanitation_department', slaDuration: '2-3 Days' },
-      { categoryName: 'Broken Dustbin Replacement', departmentCode: 'sanitation_department', slaDuration: '3-7 Days' },
-      { categoryName: 'Street Light Not Working', departmentCode: 'electricity_department', slaDuration: '2-3 Days' },
-      { categoryName: 'Open/Loose Electric Wire', departmentCode: 'electricity_department', slaDuration: 'Same Day' },
-      { categoryName: 'Electric Pole Damage', departmentCode: 'electricity_department', slaDuration: '3-7 Days' },
-      { categoryName: 'Transformer Issue', departmentCode: 'electricity_department', slaDuration: '1-3 Days' },
-      { categoryName: 'Cable Fault', departmentCode: 'electricity_department', slaDuration: '1-3 Days' },
-      { categoryName: 'Fallen Trees', departmentCode: 'garden_tree_department', slaDuration: '1-2 Days' },
-      { categoryName: 'Drainage Blockage', departmentCode: 'drainage_water_department', slaDuration: '1 Day' },
-      { categoryName: 'Open Drain', departmentCode: 'drainage_water_department', slaDuration: 'Same Day' },
-      { categoryName: 'Water Logging', departmentCode: 'drainage_water_department', slaDuration: '1-2 Days' },
-    ];
-
-    // AI-predicted category → Department mapping
-    const AI_CATEGORY_MAPPINGS = [
-      { categoryName: 'Damaged Road Issue', departmentCode: 'road_department', slaDuration: '3-5 Days', source: 'ai' },
-      { categoryName: 'Garbage and Trash Issue', departmentCode: 'sanitation_department', slaDuration: '1-2 Days', source: 'ai' },
-      { categoryName: 'Street Light Issue', departmentCode: 'electricity_department', slaDuration: '2-3 Days', source: 'ai' },
-      { categoryName: 'Fallen Trees', departmentCode: 'garden_tree_department', slaDuration: '1-3 Days', source: 'ai' },
-      { categoryName: 'Illegal Drawing on Walls', departmentCode: 'road_department', slaDuration: '4-6 Days', source: 'ai' },
-      { categoryName: 'Other', departmentCode: 'road_department', slaDuration: '3-5 Days', source: 'ai' },
-    ];
-
-    // Step 1: Delete old departments & old heads/officers
+    // Delete old data
     await Department.deleteMany({});
     await Admin.deleteMany({ role: { $in: ['department_head', 'officer'] } });
 
-    // Step 2: Create departments + heads + officers
-    let headsCreated = 0, officersCreated = 0;
-    for (const dept of DEPARTMENTS) {
-      const deptDoc = await Department.create({
-        name: dept.name, code: dept.code, description: dept.description,
-        headName: dept.head?.name || '', headEmail: dept.head?.email || '', headPhone: dept.head?.phone || '',
-        supportedCategories: dept.subcategories, priority: dept.priority, isActive: true,
+    // Create Support department
+    const deptDoc = await Department.create({
+      name: 'Support', code: 'support',
+      description: 'Support team — triages tickets, assigns to developers, manages SLA and escalations',
+      headName: 'Rahul Sharma', headEmail: 'support@techsupport.com', headPhone: '9876500001',
+      supportedCategories: [
+        { name: 'Homepage Issue', sla: '24h' }, { name: 'Admission Portal Issue', sla: '24h' },
+        { name: 'Examination Portal Issue', sla: '24h' }, { name: 'Student Portal Issue', sla: '24h' },
+        { name: 'Faculty Portal Issue', sla: '24h' }, { name: 'LMS Issue', sla: '24h' },
+        { name: 'Payment Gateway Issue', sla: '24h' }, { name: 'Email System Issue', sla: '24h' },
+        { name: 'Mobile App Issue', sla: '24h' }, { name: 'Other', sla: '24h' },
+      ],
+      priority: 'high', isActive: true,
+    });
+
+    // Create admin if not exists
+    const existingAdmin = await Admin.findOne({ email: 'admin@techsupport.com' });
+    if (!existingAdmin) {
+      await Admin.create({
+        name: 'Admin', email: 'admin@techsupport.com', password: DEFAULT_PASSWORD,
+        phone: '9876500000', role: 'super_admin', designation: 'System Administrator',
+        department: 'general', isActive: true, permissions: ADMIN_PERMISSIONS,
       });
-
-      if (dept.head) {
-        await Admin.create({
-          name: dept.head.name, email: dept.head.email, password: DEFAULT_PASSWORD,
-          phone: dept.head.phone, role: 'department_head', department: dept.code,
-          departmentCode: dept.code, departmentRef: deptDoc._id,
-          designation: dept.head.designation, isActive: true, permissions: HEAD_PERMISSIONS,
-        });
-        headsCreated++;
-      }
-
-      for (const off of dept.officers) {
-        await Admin.create({
-          name: off.name, email: off.email, password: DEFAULT_PASSWORD,
-          phone: off.phone, role: 'officer', department: dept.code,
-          departmentCode: dept.code, departmentRef: deptDoc._id,
-          designation: off.designation, employeeId: off.employeeId || '',
-          isActive: true, permissions: OFFICER_PERMISSIONS,
-        });
-        officersCreated++;
-      }
     }
 
-    // Step 3: Seed CategoryMappings
+    // Create Support Lead
+    await Admin.create({
+      name: 'Rahul Sharma', email: 'support@techsupport.com', password: DEFAULT_PASSWORD,
+      phone: '9876500001', role: 'department_head', department: 'support',
+      departmentCode: 'support', departmentRef: deptDoc._id,
+      designation: 'Support Lead', isActive: true, permissions: HEAD_PERMISSIONS,
+    });
+
+    // Create Developers
+    const devs = [
+      { name: 'Amit Kumar', email: 'developer@techsupport.com', phone: '9876500002' },
+      { name: 'Priya Singh', email: 'priya.dev@techsupport.com', phone: '9876500003' },
+    ];
+    for (const dev of devs) {
+      await Admin.create({
+        name: dev.name, email: dev.email, password: DEFAULT_PASSWORD,
+        phone: dev.phone, role: 'officer', department: 'support',
+        departmentCode: 'support', departmentRef: deptDoc._id,
+        designation: 'Developer', employeeId: '', isActive: true, permissions: OFFICER_PERMISSIONS,
+      });
+    }
+
+    // Seed CategoryMappings
     await CategoryMapping.deleteMany({});
-    const allMappings = [...SUB_CATEGORY_MAPPINGS, ...AI_CATEGORY_MAPPINGS];
-    for (const m of allMappings) {
-      const dept = await Department.findOne({ code: m.departmentCode });
-      if (dept) {
-        await CategoryMapping.findOneAndUpdate(
-          { categoryName: m.categoryName, source: m.source || 'manual' },
-          { categoryName: m.categoryName, departmentCode: m.departmentCode, departmentRef: dept._id, slaDuration: m.slaDuration, source: m.source || 'manual', isActive: true },
-          { upsert: true, new: true }
-        );
-      }
+    const categories = [
+      'Homepage Issue', 'Admission Portal Issue', 'Examination Portal Issue',
+      'Student Portal Issue', 'Faculty Portal Issue', 'LMS Issue',
+      'Payment Gateway Issue', 'Email System Issue', 'Mobile App Issue', 'Other',
+    ];
+    for (const cat of categories) {
+      await CategoryMapping.findOneAndUpdate(
+        { categoryName: cat, source: 'manual' },
+        { categoryName: cat, departmentCode: 'support', departmentRef: deptDoc._id, slaDuration: '24h', source: 'manual', isActive: true },
+        { upsert: true, new: true }
+      );
     }
 
-    console.log(`✅ Auto-seeded: ${DEPARTMENTS.length} departments, ${headsCreated} heads, ${officersCreated} officers, ${allMappings.length} mappings`);
+    console.log(`✅ Auto-seeded: 1 department, 1 support lead, ${devs.length} developers, ${categories.length} mappings`);
   } catch (err) {
     console.error('⚠️  Auto-seed error (non-fatal):', err.message);
   }

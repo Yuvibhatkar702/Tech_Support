@@ -548,6 +548,7 @@ exports.getComplaint = async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id)
       .populate('assignedTo', 'name email')
+      .populate('assignedBy', 'name email')
       .populate('statusHistory.changedBy', 'name email')
       .populate('duplicateOf', 'complaintId status');
 

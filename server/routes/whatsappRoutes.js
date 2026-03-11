@@ -94,9 +94,9 @@ async function handleIncomingMessage(message, contact) {
       // Send status tracking instructions
       await whatsappService.sendTextMessage(
         phoneNumber,
-        'To check your ticket status, please reply with your Ticket ID (e.g., TKT2603020001).'
+        'To check your ticket status, please reply with your Ticket ID (e.g., GRV2603020001).'
       );
-    } else if (text.match(/^tkt\d+$/i)) {
+    } else if (text.match(/^grv\d+$/i)) {
       // User sent a complaint ID - fetch and send status
       const complaintId = text.toUpperCase();
       // This would need to be implemented with the Complaint model

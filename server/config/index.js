@@ -12,7 +12,7 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
     ? (() => { throw new Error('JWT_SECRET env var is REQUIRED in production'); })()
     : 'dev-only-secret-not-for-production'),
-  jwtExpiresIn: '24h',
+  jwtExpiresIn: '12h',
   
   // WhatsApp Cloud API
   whatsapp: {

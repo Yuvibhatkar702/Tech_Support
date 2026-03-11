@@ -1,6 +1,6 @@
 const Citizen = require('../models/Citizen');
 
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 /**
  * Citizen authentication middleware

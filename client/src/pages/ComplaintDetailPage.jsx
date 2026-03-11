@@ -1,21 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
 import { useAuthStore, useToastStore } from '../store';
 import { adminApi } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
-
-// Fix Leaflet default icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
 
 export default function ComplaintDetailPage() {
   const { t } = useTranslation();
@@ -110,10 +100,6 @@ export default function ComplaintDetailPage() {
     );
   }
 
-  const location = complaint.location?.coordinates
-    ? { lat: complaint.location.coordinates[1], lng: complaint.location.coordinates[0] }
-    : null;
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -131,16 +117,13 @@ export default function ComplaintDetailPage() {
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-5">
         {/* ── Ticket Header Card ─────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Top banner */}
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p className="text-primary-200 text-xs uppercase tracking-wide">Ticket ID</p>
-                <h1 className="text-2xl font-bold font-mono text-white">
-                  {complaint.complaintId}
-                </h1>
+                <h1 className="text-2xl font-bold font-mono text-white">{complaint.complaintId}</h1>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={complaint.status} size="lg" />
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                   complaint.priority === 'critical' ? 'bg-red-50 text-red-700 border-red-200' :
@@ -150,37 +133,164 @@ export default function ComplaintDetailPage() {
                 }`}>
                   {complaint.priority} priority
                 </span>
+                {complaint.source && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-700 border border-gray-200">
+                    via {complaint.source}
+                  </span>
+                )}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Details grid */}
-          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        {/* ── Submitter Info ─────────────────────────────────── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Submitter Info</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Category</p>
-              <p className="font-medium text-gray-900">{complaint.category}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Submitted</p>
-              <p className="font-medium text-gray-900">
-                {new Date(complaint.createdAt).toLocaleDateString(undefined, {
-                  year: 'numeric', month: 'short', day: 'numeric',
-                })}
-              </p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Name</p>
+              <p className="font-medium text-gray-900">{complaint.user?.name || 'N/A'}</p>
             </div>
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Phone</p>
               <p className="font-medium text-gray-900">{complaint.user?.phoneNumber || complaint.whatsappNumber || 'N/A'}</p>
             </div>
-            {complaint.assignedTo ? (
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Language</p>
+              <p className="font-medium text-gray-900">{complaint.user?.preferredLanguage?.toUpperCase() || 'EN'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Source</p>
+              <p className="font-medium text-gray-900">{complaint.source || 'web'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Ticket Details ─────────────────────────────────── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Ticket Details</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Category</p>
+              <p className="font-medium text-gray-900">{complaint.category}</p>
+            </div>
+            {complaint.issueType && (
               <div>
-                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned To</p>
-                <p className="font-medium text-gray-900">{complaint.assignedTo.name}</p>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Issue Type</p>
+                <p className="font-medium text-gray-900">{complaint.issueType.replace(/_/g, ' ')}</p>
               </div>
-            ) : (
+            )}
+            {complaint.websiteName && (
               <div>
-                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Department</p>
-                <p className="font-medium text-gray-900">{complaint.department || 'Unassigned'}</p>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Website</p>
+                <p className="font-medium text-gray-900 break-all">{complaint.websiteName}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Submitted</p>
+              <p className="font-medium text-gray-900">
+                {new Date(complaint.createdAt).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Last Updated</p>
+              <p className="font-medium text-gray-900">
+                {new Date(complaint.updatedAt).toLocaleString()}
+              </p>
+            </div>
+            {complaint.upvoteCount > 0 && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Upvotes</p>
+                <p className="font-medium text-gray-900">{complaint.upvoteCount}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Public</p>
+              <p className="font-medium text-gray-900">{complaint.isPublic ? 'Yes' : 'No'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Assignment & Department ────────────────────────── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Assignment</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Department</p>
+              <p className="font-medium text-gray-900">{complaint.departmentName || complaint.department || 'Unassigned'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned To</p>
+              <p className="font-medium text-gray-900">{complaint.assignedTo?.name || 'Unassigned'}</p>
+            </div>
+            {complaint.assignedBy && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned By</p>
+                <p className="font-medium text-gray-900">{complaint.assignedBy?.name || complaint.assignedBy}</p>
+              </div>
+            )}
+            {complaint.assignedAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned At</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.assignedAt).toLocaleString()}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── SLA & Timeline ─────────────────────────────────── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">SLA & Timeline</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            {complaint.estimatedResolution && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Est. Resolution</p>
+                <p className="font-medium text-gray-900">{complaint.estimatedResolution}</p>
+              </div>
+            )}
+            {complaint.expectedResolveAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Expected By</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.expectedResolveAt).toLocaleString()}</p>
+              </div>
+            )}
+            {complaint.sla?.targetResolutionDate && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">SLA Target</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.sla.targetResolutionDate).toLocaleString()}</p>
+              </div>
+            )}
+            {complaint.sla && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">SLA Status</p>
+                <p className={`font-medium ${complaint.sla.isOverdue ? 'text-red-600' : 'text-green-600'}`}>
+                  {complaint.sla.isOverdue ? 'Overdue' : 'On Track'}
+                  {complaint.sla.escalationLevel > 0 && ` (Escalation L${complaint.sla.escalationLevel})`}
+                </p>
+              </div>
+            )}
+            {complaint.startedAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Work Started</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.startedAt).toLocaleString()}</p>
+              </div>
+            )}
+            {complaint.resolvedAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Resolved At</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.resolvedAt).toLocaleString()}</p>
+              </div>
+            )}
+            {complaint.closedAt && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Closed At</p>
+                <p className="font-medium text-gray-900">{new Date(complaint.closedAt).toLocaleString()}</p>
+              </div>
+            )}
+            {complaint.resolutionDays != null && (
+              <div>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Resolution Days</p>
+                <p className="font-medium text-gray-900">{complaint.resolutionDays} days</p>
               </div>
             )}
           </div>
@@ -194,40 +304,9 @@ export default function ComplaintDetailPage() {
           </p>
         </div>
 
-        {/* ── Location + Image side-by-side on large screens ─ */}
+        {/* ── Screenshot & Images ────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Location */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Location</h2>
-            <p className="text-sm text-gray-600 mb-3">
-              {complaint.address?.fullAddress || complaint.location?.address || 'Address not available'}
-            </p>
-            {location && (
-              <div className="h-56 rounded-xl overflow-hidden border border-gray-200">
-                <MapContainer
-                  center={[location.lat, location.lng]}
-                  zoom={15}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <Marker position={[location.lat, location.lng]}>
-                    <Popup>
-                      <div>
-                        <p className="font-medium">{complaint.complaintId}</p>
-                        <p className="text-sm text-gray-600">{complaint.location?.address}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                </MapContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Screenshot */}
-          {complaint.image?.filePath ? (
+          {complaint.image?.filePath && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="text-base font-semibold text-gray-900 mb-3">Screenshot</h2>
               <div className="rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
@@ -239,11 +318,106 @@ export default function ComplaintDetailPage() {
                 />
               </div>
             </div>
-          ) : (
-            /* keep grid balanced when no image */
-            <div />
+          )}
+
+          {/* Additional Images */}
+          {complaint.images && complaint.images.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-3">Additional Images ({complaint.images.length})</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {complaint.images.map((img, i) => {
+                  const imgUrl = img.url || (img.filePath ? `${API_BASE}/${img.filePath.replace(/\\/g, '/')}` : null);
+                  if (!imgUrl) return null;
+                  return (
+                    <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
+                      className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200 hover:opacity-90 transition">
+                      <img src={imgUrl} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
+
+        {/* ── Additional Files ──────────────────────────────── */}
+        {complaint.additionalFiles && complaint.additionalFiles.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Attachments ({complaint.additionalFiles.length})</h2>
+            <div className="space-y-2">
+              {complaint.additionalFiles.map((file, i) => {
+                const fileUrl = file.url || (file.filePath ? `${API_BASE}/${file.filePath.replace(/\\/g, '/')}` : null);
+                return (
+                  <a key={i} href={fileUrl || '#'} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
+                    <span className="text-lg">📎</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{file.originalName || file.fileName}</p>
+                      {file.size && <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Voice Note ────────────────────────────────────── */}
+        {complaint.voiceNote?.filePath && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Voice Note</h2>
+            <audio controls className="w-full mb-2">
+              <source src={`${API_BASE}/${complaint.voiceNote.filePath.replace(/\\/g, '/')}`} />
+            </audio>
+            {complaint.voiceNote.duration && (
+              <p className="text-xs text-gray-500">Duration: {complaint.voiceNote.duration}s</p>
+            )}
+            {complaint.voiceNote.transcription && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Transcription</p>
+                <p className="text-sm text-gray-700">{complaint.voiceNote.transcription}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Location / Address ─────────────────────────────── */}
+        {(complaint.address?.fullAddress || complaint.location?.address) && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Location</h2>
+            <p className="text-sm text-gray-700">{complaint.address?.fullAddress || complaint.location?.address}</p>
+            {complaint.location?.coordinates && (
+              <p className="text-xs text-gray-400 mt-2">
+                Coordinates: {complaint.location.coordinates[1]}, {complaint.location.coordinates[0]}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Resolution ────────────────────────────────────── */}
+        {complaint.resolution?.description && (
+          <div className="bg-green-50 rounded-2xl shadow-sm border border-green-200 p-6">
+            <h2 className="text-base font-semibold text-green-900 mb-3">Resolution</h2>
+            <p className="text-sm text-green-800 whitespace-pre-wrap">{complaint.resolution.description}</p>
+            {complaint.resolution.resolvedAt && (
+              <p className="text-xs text-green-600 mt-2">Resolved: {new Date(complaint.resolution.resolvedAt).toLocaleString()}</p>
+            )}
+            {complaint.resolution.images && complaint.resolution.images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                {complaint.resolution.images.map((img, i) => {
+                  const imgUrl = img.url || (img.filePath ? `${API_BASE}/${img.filePath.replace(/\\/g, '/')}` : null);
+                  if (!imgUrl) return null;
+                  return (
+                    <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
+                      className="aspect-square rounded-lg overflow-hidden bg-white border border-green-200">
+                      <img src={imgUrl} alt={`Resolution ${i + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Resolution Proof Images ───────────────────────── */}
         {complaint.resolutionProof && complaint.resolutionProof.length > 0 && (
@@ -256,18 +430,9 @@ export default function ComplaintDetailPage() {
                 const proofUrl = proof.url || (proof.filePath ? `${API_BASE}/${proof.filePath.replace(/\\/g, '/')}` : null);
                 if (!proofUrl) return null;
                 return (
-                  <a
-                    key={index}
-                    href={proofUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:opacity-90 transition"
-                  >
-                    <img
-                      src={proofUrl}
-                      alt={`Resolution proof ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                  <a key={index} href={proofUrl} target="_blank" rel="noopener noreferrer"
+                    className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:opacity-90 transition">
+                    <img src={proofUrl} alt={`Resolution proof ${index + 1}`} className="w-full h-full object-cover" />
                   </a>
                 );
               })}
@@ -275,7 +440,70 @@ export default function ComplaintDetailPage() {
           </div>
         )}
 
-        {/* ── Internal Notes / Duplicate Info (inline) ──────── */}
+        {/* ── Reopen Info ───────────────────────────────────── */}
+        {complaint.reopenCount > 0 && (
+          <div className="bg-orange-50 rounded-2xl shadow-sm border border-orange-200 p-6">
+            <h2 className="text-base font-semibold text-orange-900 mb-3">Reopen History</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-orange-500 text-xs uppercase tracking-wide mb-1">Reopen Count</p>
+                <p className="font-medium text-orange-900">{complaint.reopenCount}</p>
+              </div>
+              {complaint.reopenedAt && (
+                <div>
+                  <p className="text-orange-500 text-xs uppercase tracking-wide mb-1">Last Reopened</p>
+                  <p className="font-medium text-orange-900">{new Date(complaint.reopenedAt).toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+            {complaint.reopenReason && (
+              <div className="mt-3 p-3 bg-white/60 rounded-lg">
+                <p className="text-xs text-orange-500 uppercase tracking-wide mb-1">Reason</p>
+                <p className="text-sm text-orange-800">{complaint.reopenReason}</p>
+              </div>
+            )}
+            {complaint.reopenProof && complaint.reopenProof.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                {complaint.reopenProof.map((proof, i) => {
+                  const proofUrl = proof.url || (proof.filePath ? `${API_BASE}/${proof.filePath.replace(/\\/g, '/')}` : null);
+                  if (!proofUrl) return null;
+                  return (
+                    <a key={i} href={proofUrl} target="_blank" rel="noopener noreferrer"
+                      className="aspect-square rounded-lg overflow-hidden bg-white border border-orange-200">
+                      <img src={proofUrl} alt={`Reopen proof ${i + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Feedback & Rating ─────────────────────────────── */}
+        {(complaint.feedback?.rating || complaint.officerRating?.rating) && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Feedback</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {complaint.feedback?.rating && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Citizen Feedback</p>
+                  <p className="text-lg font-bold text-gray-900">{'⭐'.repeat(complaint.feedback.rating)} ({complaint.feedback.rating}/5)</p>
+                  {complaint.feedback.comment && <p className="text-sm text-gray-700 mt-1">{complaint.feedback.comment}</p>}
+                  {complaint.feedback.submittedAt && <p className="text-xs text-gray-400 mt-1">{new Date(complaint.feedback.submittedAt).toLocaleString()}</p>}
+                </div>
+              )}
+              {complaint.officerRating?.rating && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Officer Rating</p>
+                  <p className="text-lg font-bold text-gray-900">{'⭐'.repeat(complaint.officerRating.rating)} ({complaint.officerRating.rating}/5)</p>
+                  {complaint.officerRating.comment && <p className="text-sm text-gray-700 mt-1">{complaint.officerRating.comment}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Internal Notes / Duplicate Info ────────────────── */}
         {(complaint.internalNotes || complaint.duplicateOf) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {complaint.internalNotes && (
@@ -286,15 +514,33 @@ export default function ComplaintDetailPage() {
             )}
             {complaint.duplicateOf && (
               <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 p-6">
-                <h2 className="text-base font-semibold text-yellow-800 mb-2">⚠️ Duplicate</h2>
+                <h2 className="text-base font-semibold text-yellow-800 mb-2">Duplicate</h2>
                 <p className="text-sm text-yellow-700">
-                  This is a duplicate of ticket{' '}
+                  Duplicate of{' '}
                   <Link to={`/admin/complaints/${complaint.duplicateOf}`} className="font-medium underline">
                     {complaint.duplicateOf}
                   </Link>
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── SLA Escalation History ─────────────────────────── */}
+        {complaint.sla?.escalationHistory && complaint.sla.escalationHistory.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Escalation History</h2>
+            <div className="space-y-2">
+              {complaint.sla.escalationHistory.map((esc, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
+                  <span className="text-red-500 text-sm">L{esc.level}</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800">{esc.reason || 'Escalated'}</p>
+                    <p className="text-xs text-red-500">{new Date(esc.escalatedAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -337,7 +583,42 @@ export default function ComplaintDetailPage() {
             )}
           </div>
         </div>
+
+        {/* ── Audit Info ────────────────────────────────────── */}
+        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6">
+          <h2 className="text-base font-semibold text-gray-600 mb-3">Audit Info</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-gray-500">
+            {complaint.ipAddress && (
+              <div>
+                <p className="uppercase tracking-wide mb-1">IP Address</p>
+                <p className="font-mono">{complaint.ipAddress}</p>
+              </div>
+            )}
+            {complaint.userAgent && (
+              <div className="col-span-2">
+                <p className="uppercase tracking-wide mb-1">User Agent</p>
+                <p className="font-mono truncate" title={complaint.userAgent}>{complaint.userAgent}</p>
+              </div>
+            )}
+            {complaint.whatsappSessionId && (
+              <div>
+                <p className="uppercase tracking-wide mb-1">WhatsApp Session</p>
+                <p className="font-mono">{complaint.whatsappSessionId}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </main>
+
+      {/* Floating Update Button */}
+      <div className="fixed bottom-6 right-6 z-20">
+        <button
+          onClick={() => setShowUpdateModal(true)}
+          className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-full shadow-lg font-medium transition flex items-center gap-2"
+        >
+          ✏️ Update Ticket
+        </button>
+      </div>
 
       {/* Update Modal */}
       {showUpdateModal && (

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const CHECK_INTERVAL = 30 * 1000;       // check every 30 seconds
+const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
+const CHECK_INTERVAL = 5 * 60 * 1000;          // check every 5 minutes
 const ACTIVITY_EVENTS = ['mousemove', 'click', 'keydown', 'scroll', 'touchstart'];
 
 /**
