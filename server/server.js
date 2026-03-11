@@ -98,6 +98,19 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Tech Support API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+    },
+  });
+});
+
 // Database connection and server start
 let isConnected = false;
 
