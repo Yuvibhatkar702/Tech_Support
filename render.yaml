@@ -4,7 +4,6 @@ services:
     name: tech-support-api
     runtime: node
     region: oregon
-    plan: free
     rootDir: server
     buildCommand: npm install
     startCommand: node server.js
@@ -28,7 +27,6 @@ services:
   - type: web
     name: tech-support-client
     runtime: static
-    plan: free
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: dist
