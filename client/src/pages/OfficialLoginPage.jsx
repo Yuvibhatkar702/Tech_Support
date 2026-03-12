@@ -31,12 +31,15 @@ export default function OfficialLoginPage() {
         adminLogin(official, token);
 
         // ── Stamp session-activity clocks for the timeout guard ────
+        // Clear stale opposite-role session keys to prevent cross-role logout
         const now = Date.now().toString();
         if (['super_admin', 'admin'].includes(official.role)) {
           localStorage.setItem('adminSession', now);
+          localStorage.removeItem('officerSession');
         }
         if (['developer', 'support'].includes(official.role)) {
           localStorage.setItem('officerSession', now);
+          localStorage.removeItem('adminSession');
         }
 
         addToast(`Welcome, ${official.name}`, 'success');

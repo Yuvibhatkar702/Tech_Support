@@ -69,7 +69,10 @@ function OfficialProtectedRoute({ children, allowedRoles }) {
 function SessionGuard() {
   // Admin session (super_admin / admin)
   const adminLogout = useAuthStore((s) => s.logout);
+  const adminRole = useAuthStore((s) => s.admin?.role);
   const getAdminToken = useCallback(() => useAuthStore.getState().token, []);
+
+  const isAdmin = ['super_admin', 'admin'].includes(adminRole);
 
   useSessionManager({
     getToken: getAdminToken,
@@ -79,12 +82,15 @@ function SessionGuard() {
     },
     storageKey: 'adminSession',
     loginPath: '/official-login',
-    enabled: true,
+    enabled: isAdmin,
   });
 
   // Official session (support / developer)
   const officialLogout = useOfficialStore((s) => s.logout);
+  const officialRole = useOfficialStore((s) => s.official?.role);
   const getOfficialToken = useCallback(() => useOfficialStore.getState().token, []);
+
+  const isOfficer = ['developer', 'support'].includes(officialRole);
 
   useSessionManager({
     getToken: getOfficialToken,
@@ -94,7 +100,7 @@ function SessionGuard() {
     },
     storageKey: 'officerSession',
     loginPath: '/official-login',
-    enabled: true,
+    enabled: isOfficer,
   });
 
   return null; // render nothing — pure side-effect component
