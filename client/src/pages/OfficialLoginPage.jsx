@@ -48,7 +48,7 @@ export default function OfficialLoginPage() {
             navigate('/admin/dashboard');
             break;
           case 'support':
-            navigate('/department');
+            navigate('/officer');
             break;
           case 'developer':
             navigate('/officer');

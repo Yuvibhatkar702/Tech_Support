@@ -398,6 +398,7 @@ exports.getOfficerComplaints = async (req, res) => {
     const [complaints, total] = await Promise.all([
       Complaint.find(filter)
         .populate('assignedBy', 'name email')
+        .populate('statusHistory.changedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),

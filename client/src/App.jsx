@@ -173,7 +173,7 @@ function App() {
         <Route
           path="/officer"
           element={
-            <OfficialProtectedRoute allowedRoles={['developer']}>
+            <OfficialProtectedRoute allowedRoles={['developer', 'support']}>
               <OfficerDashboardPage />
             </OfficialProtectedRoute>
           }

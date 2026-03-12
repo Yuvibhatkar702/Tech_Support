@@ -306,25 +306,6 @@ export default function OfficerDashboardPage() {
           </div>
         )}
 
-        {/* Rating Summary */}
-        {stats?.avgRating && (
-          <div className="bg-white rounded-xl shadow-sm p-5 border">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Your Rating</h2>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <span key={star} className={`text-2xl ${star <= Math.round(stats.avgRating) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
-                ))}
-              </div>
-              <div>
-                <span className="text-2xl font-bold text-gray-900">{stats.avgRating}</span>
-                <span className="text-sm text-gray-500 ml-1">/ 5</span>
-              </div>
-              <span className="text-sm text-gray-500">({stats.totalRatings} {stats.totalRatings === 1 ? 'rating' : 'ratings'})</span>
-            </div>
-          </div>
-        )}
-
         {/* Filters */}
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-600">Filter:</label>
@@ -423,15 +404,28 @@ export default function OfficerDashboardPage() {
                     {c.assignedBy?.name && (
                       <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {c.assignedBy.name}</p>
                     )}
-                    {displayDescription && (
-                      <div>
-                        {isReopened && (
-                          <span className="text-xs font-medium text-orange-600 mr-1">Reopen reason:</span>
-                        )}
-                        <p className={`text-sm ${isReopened ? 'text-orange-700' : 'text-gray-600'}`}>{displayDescription}</p>
+                    {/* Original description */}
+                    {c.description && (
+                      <div className="mt-1">
+                        <p className="text-xs font-medium text-gray-500">Description:</p>
+                        <p className="text-sm text-gray-600">{c.description}</p>
                       </div>
                     )}
-                    {c.address?.fullAddress && <p className="text-xs text-gray-400">{c.address.fullAddress}</p>}
+                    {/* Previous reassign description & assigner */}
+                    {(() => {
+                      const lastReassign = c.statusHistory?.filter(h => h.remarks)?.slice(-1)[0];
+                      if (!lastReassign) return null;
+                      return (
+                        <div className="mt-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                          <p className="text-xs font-medium text-blue-700">Previous Note:</p>
+                          <p className="text-sm text-blue-800">{lastReassign.remarks}</p>
+                          {lastReassign.changedBy?.name && (
+                            <p className="text-xs text-blue-600 mt-1">— {lastReassign.changedBy.name}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    {c.address?.fullAddress && <p className="text-xs text-gray-400 mt-1">{c.address.fullAddress}</p>}
                   </div>
                 </div>
 
@@ -518,6 +512,25 @@ export default function OfficerDashboardPage() {
             <div className="flex gap-2">
               <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 text-sm border rounded-lg disabled:opacity-50 hover:bg-white transition">Prev</button>
               <button disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 text-sm border rounded-lg disabled:opacity-50 hover:bg-white transition">Next</button>
+            </div>
+          </div>
+        )}
+
+        {/* Rating Summary */}
+        {stats?.avgRating && (
+          <div className="bg-white rounded-xl shadow-sm p-5 border">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Your Rating</h2>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span key={star} className={`text-2xl ${star <= Math.round(stats.avgRating) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+                ))}
+              </div>
+              <div>
+                <span className="text-2xl font-bold text-gray-900">{stats.avgRating}</span>
+                <span className="text-sm text-gray-500 ml-1">/ 5</span>
+              </div>
+              <span className="text-sm text-gray-500">({stats.totalRatings} {stats.totalRatings === 1 ? 'rating' : 'ratings'})</span>
             </div>
           </div>
         )}

@@ -612,8 +612,8 @@ export default function ComplaintDetailPage() {
                     {entry.changedBy && (
                       <p className="text-sm text-gray-500">by {entry.changedBy.name || 'Admin'}</p>
                     )}
-                    {entry.notes && (
-                      <p className="text-sm text-gray-700 mt-1">{entry.notes}</p>
+                    {entry.remarks && (
+                      <p className="text-sm text-gray-700 mt-1 bg-gray-50 px-3 py-2 rounded-lg">{entry.remarks}</p>
                     )}
                   </div>
                 </div>
