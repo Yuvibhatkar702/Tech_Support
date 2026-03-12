@@ -35,7 +35,7 @@ export default function OfficialLoginPage() {
         if (['super_admin', 'admin'].includes(official.role)) {
           localStorage.setItem('adminSession', now);
         }
-        if (['officer', 'department_head'].includes(official.role)) {
+        if (['developer', 'support'].includes(official.role)) {
           localStorage.setItem('officerSession', now);
         }
 
@@ -47,10 +47,10 @@ export default function OfficialLoginPage() {
           case 'admin':
             navigate('/admin/dashboard');
             break;
-          case 'department_head':
+          case 'support':
             navigate('/department');
             break;
-          case 'officer':
+          case 'developer':
             navigate('/officer');
             break;
           default:

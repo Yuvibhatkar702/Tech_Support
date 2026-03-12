@@ -64,21 +64,13 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // On 401 (Unauthorized), the JWT might have expired or become invalid
-    // Clear both stores to force re-login
+    // On 401 (Unauthorized), don't auto-logout - let the user click logout
+    // This prevents race conditions during hydration and lets session timeout handle expiry
+    // Only log for debugging
     if (error.response?.status === 401) {
-      const message = error.response?.data?.message || '';
-      // Only auto-clear if it's a token issue (not just wrong password on login)
-      if (message.includes('expired') || message.includes('Invalid token') || message.includes('Access denied') || message.includes('mismatch')) {
-        console.warn('Session expired or invalid token - clearing auth stores');
-        // Don't clear during login attempts
-        const url = error.config?.url || '';
-        if (!url.includes('/login')) {
-          useAuthStore.getState().logout();
-          useOfficialStore.getState().logout();
-          localStorage.removeItem('adminSession');
-          localStorage.removeItem('officerSession');
-        }
+      const url = error.config?.url || '';
+      if (!url.includes('/login')) {
+        console.log('401 received - user should re-login if needed');
       }
     }
     return Promise.reject(error);
@@ -317,6 +309,18 @@ export const adminApi = {
     const response = await api.patch(`/complaints/${id}`, updates);
     return response.data;
   },
+
+  // Assign complaint to an official (Support Lead / Developer)
+  assignComplaint: async (id, adminId) => {
+    const response = await api.patch(`/complaints/${id}/assign`, { adminId });
+    return response.data;
+  },
+
+  // Get all officials (for assignment dropdown)
+  getOfficials: async () => {
+    const response = await api.get('/officials/all');
+    return response.data;
+  },
 };
 
 // Citizen Portal APIs
@@ -524,6 +528,85 @@ export const officialApi = {
   deleteOfficial: async (id) => {
     const response = await api.delete(`/officials/${id}`);
     return response.data;
+  },
+
+  // Change password (for any official)
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.post('/officials/change-password', { currentPassword, newPassword });
+    return response.data;
+  },
+};
+
+// College API
+export const collegeApi = {
+  // Get all colleges
+  getAll: async (params = {}) => {
+    const response = await api.get('/colleges', { params });
+    return response.data;
+  },
+
+  // Get college by code
+  getByCode: async (code) => {
+    const response = await api.get(`/colleges/${code}`);
+    return response.data;
+  },
+
+  // Create new college
+  create: async (data) => {
+    const response = await api.post('/colleges', data);
+    return response.data;
+  },
+
+  // Generate code for college
+  generateCode: async (id) => {
+    const response = await api.post(`/colleges/${id}/generate-code`);
+    return response.data;
+  },
+
+  // Update college
+  update: async (id, data) => {
+    const response = await api.put(`/colleges/${id}`, data);
+    return response.data;
+  },
+
+  // Delete college
+  delete: async (id) => {
+    const response = await api.delete(`/colleges/${id}`);
+    return response.data;
+  },
+
+  // Get unique cities
+  getCities: async () => {
+    const response = await api.get('/colleges/cities');
+    return response.data;
+  },
+
+  // Bulk import colleges
+  bulkImport: async (colleges) => {
+    const response = await api.post('/colleges/bulk-import', { colleges });
+    return response.data;
+  },
+
+  // Public: Get all colleges (no auth)
+  getPublic: async (params = {}) => {
+    const response = await api.get('/colleges/public', { params });
+    return response.data;
+  },
+
+  // Public: Get college by code (no auth)
+  getPublicByCode: async (code) => {
+    const response = await api.get(`/colleges/public/${code}`);
+    return response.data;
+  },
+
+  // Get last faculty info for a college
+  getLastFacultyForCollege: async (collegeCode) => {
+    try {
+      const res = await api.get(`/complaints/last-faculty/${collegeCode}`);
+      return res.data;
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
   },
 };
 

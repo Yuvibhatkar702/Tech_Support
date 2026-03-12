@@ -25,7 +25,7 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore, useToastStore } from '../store';
-import { adminApi, departmentApi, officialApi } from '../services/api';
+import { adminApi, departmentApi, officialApi, collegeApi } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import NotificationCenter from '../components/NotificationCenter';
 import { useSocket, requestNotificationPermission } from '../hooks/useSocket';
@@ -78,7 +78,7 @@ function MapBoundsUpdater({ complaints }) {
 }
 
 // SLA Timer Component
-function SLATimer({ createdAt, slaHours = 72, status }) {
+function SLATimer({ createdAt, slaHours = 24, status }) {
   const { t } = useTranslation();
   
   if (['closed', 'rejected'].includes(status)) {
@@ -289,8 +289,10 @@ function ManagePanel({ onDepartmentChange }) {
   const { addToast } = useToastStore();
   const [departments, setDepartments] = useState([]);
   const [officials, setOfficials] = useState([]);
-  const [activeSection, setActiveSection] = useState('departments');
+  const [colleges, setColleges] = useState([]);
+  const [activeSection, setActiveSection] = useState('colleges');
   const [loading, setLoading] = useState(true);
+  const [collegeSearch, setCollegeSearch] = useState('');
 
   // Department form
   const DEPT_FORM_INITIAL = {
@@ -311,21 +313,27 @@ function ManagePanel({ onDepartmentChange }) {
 
   // Official form
   const OFFICIAL_FORM_INITIAL = {
-    name: '', email: '', phone: '', designation: '',
-    employeeId: '', departmentCode: '', role: 'officer', isActive: true,
+    name: '', email: '', role: 'developer', isActive: true,
   };
   const [officialForm, setOfficialForm] = useState(OFFICIAL_FORM_INITIAL);
   const [showOfficialForm, setShowOfficialForm] = useState(false);
 
+  // College form
+  const COLLEGE_FORM_INITIAL = { name: '', city: '' };
+  const [collegeForm, setCollegeForm] = useState(COLLEGE_FORM_INITIAL);
+  const [showCollegeForm, setShowCollegeForm] = useState(false);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [deptRes, officialRes] = await Promise.all([
+      const [deptRes, officialRes, collegeRes] = await Promise.all([
         departmentApi.getAll(),
         officialApi.getAllOfficials(),
+        collegeApi.getAll(),
       ]);
       if (deptRes.success) setDepartments(deptRes.data);
       if (officialRes.success) setOfficials(officialRes.data);
+      if (collegeRes.success) setColleges(collegeRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -354,12 +362,14 @@ function ManagePanel({ onDepartmentChange }) {
   const handleCreateOfficial = async (e) => {
     e.preventDefault();
     try {
-      const fn = officialForm.role === 'department_head'
-        ? officialApi.createDepartmentHead
-        : officialApi.createOfficer;
-      const res = await fn(officialForm);
+      const res = await officialApi.createOfficer({
+        ...officialForm,
+        designation: officialForm.role === 'support' ? 'Support Engineer' : 'Developer',
+        departmentCode: officialForm.role,
+        department: officialForm.role,
+      });
       if (res.success) {
-        addToast(`${officialForm.role === 'department_head' ? 'Support Lead' : 'Developer'} created (default password: Pass@123)`, 'success');
+        addToast(`${officialForm.role === 'support' ? 'Support' : 'Developer'} created (default password: Pass@123)`, 'success');
         setOfficialForm(OFFICIAL_FORM_INITIAL);
         setShowOfficialForm(false);
         fetchData();
@@ -396,13 +406,61 @@ function ManagePanel({ onDepartmentChange }) {
     }
   };
 
-  const roleLabel = { department_head: 'Support', officer: 'Developer' };
+  // College handlers
+  const handleCreateCollege = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await collegeApi.create(collegeForm);
+      if (res.success) {
+        addToast(`College created with code: ${res.data.code}`, 'success');
+        setCollegeForm(COLLEGE_FORM_INITIAL);
+        setShowCollegeForm(false);
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to create college', 'error');
+    }
+  };
+
+  const handleDeleteCollege = async (college) => {
+    if (!window.confirm(`Are you sure you want to deactivate "${college.name}"?`)) return;
+    try {
+      const res = await collegeApi.delete(college._id);
+      if (res.success) {
+        addToast('College deactivated', 'success');
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to deactivate college', 'error');
+    }
+  };
+
+  const handleGenerateCode = async (college) => {
+    try {
+      const res = await collegeApi.generateCode(college._id);
+      if (res.success) {
+        addToast(`Generated code: ${res.data.code}`, 'success');
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to generate code', 'error');
+    }
+  };
+
+  // Filter colleges by search
+  const filteredColleges = colleges.filter(c => 
+    c.name.toLowerCase().includes(collegeSearch.toLowerCase()) ||
+    c.city.toLowerCase().includes(collegeSearch.toLowerCase()) ||
+    c.code?.toLowerCase().includes(collegeSearch.toLowerCase())
+  );
+
+  const roleLabel = { support: 'Support', developer: 'Developer' };
 
   return (
     <div className="space-y-6">
       {/* Section Tabs */}
       <div className="flex gap-2">
-        {[{ key: 'departments', label: 'Departments' }, { key: 'officials', label: 'Officials' }].map(s => (
+        {[{ key: 'colleges', label: 'Colleges' }, { key: 'officials', label: 'Officials' }].map(s => (
           <button
             key={s.key}
             onClick={() => setActiveSection(s.key)}
@@ -415,197 +473,119 @@ function ManagePanel({ onDepartmentChange }) {
         ))}
       </div>
 
-      {/* Departments */}
-      {activeSection === 'departments' && (
+      {/* Colleges Section */}
+      {activeSection === 'colleges' && (
         <div className="bg-white rounded-2xl shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Departments</h2>
-            <button onClick={() => setShowDeptForm(!showDeptForm)} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">
-              {showDeptForm ? 'Cancel' : '+ New Department'}
+            <h2 className="text-lg font-bold text-gray-900">Colleges ({colleges.length})</h2>
+            <button onClick={() => setShowCollegeForm(!showCollegeForm)} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">
+              {showCollegeForm ? 'Cancel' : '+ Add College'}
             </button>
           </div>
 
-          {showDeptForm && (
-            <form onSubmit={handleCreateDept} className="mb-6 p-5 bg-gray-50 rounded-xl border border-gray-200 space-y-5">
-              {/* Section: Department Info */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Department Info</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Department Name <span className="text-red-500">*</span></label>
-                    <input value={deptForm.name} onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} placeholder="e.g. Road Department (PWD)" required className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                    <input value={deptForm.description} onChange={e => setDeptForm({ ...deptForm, description: e.target.value })} placeholder="Brief description" className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Configuration */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Configuration</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Priority Level</label>
-                    <select value={deptForm.priority} onChange={e => setDeptForm({ ...deptForm, priority: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                    <select value={deptForm.isActive} onChange={e => setDeptForm({ ...deptForm, isActive: e.target.value === 'true' })} className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                      <option value="true">Active</option>
-                      <option value="false">Inactive</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Subcategories with individual SLA */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
-                  Subcategories <span className="text-red-500">*</span>
-                  <span className="text-xs font-normal text-gray-400 ml-2">({deptForm.subcategories.length} added)</span>
-                </h3>
-                <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                  <input
-                    value={newSubcategory}
-                    onChange={e => setNewSubcategory(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = newSubcategory.trim();
-                        if (val && !deptForm.subcategories.some(s => s.name === val)) {
-                          setDeptForm(prev => ({ ...prev, subcategories: [...prev.subcategories, { name: val, sla: newSubcategorySla }] }));
-                          setNewSubcategory('');
-                        }
-                      }
-                    }}
-                    placeholder="Subcategory name"
-                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          {/* College Form */}
+          {showCollegeForm && (
+            <form onSubmit={handleCreateCollege} className="mb-6 p-5 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">College Name <span className="text-red-500">*</span></label>
+                  <input 
+                    value={collegeForm.name} 
+                    onChange={e => setCollegeForm({ ...collegeForm, name: e.target.value })} 
+                    placeholder="e.g. ABC Engineering College" 
+                    required 
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
                   />
-                  <select
-                    value={newSubcategorySla}
-                    onChange={e => setNewSubcategorySla(e.target.value)}
-                    className="w-full sm:w-40 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    {SLA_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const val = newSubcategory.trim();
-                      if (val && !deptForm.subcategories.some(s => s.name === val)) {
-                        setDeptForm(prev => ({ ...prev, subcategories: [...prev.subcategories, { name: val, sla: newSubcategorySla }] }));
-                        setNewSubcategory('');
-                      }
-                    }}
-                    className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition font-medium whitespace-nowrap"
-                  >
-                    + Add
-                  </button>
                 </div>
-                {deptForm.subcategories.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {deptForm.subcategories.map((sub, idx) => (
-                      <div key={idx} className="flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg">
-                        <span className="text-sm font-medium text-gray-700">{sub.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium">SLA: {sub.sla}</span>
-                          <button
-                            type="button"
-                            onClick={() => setDeptForm(prev => ({ ...prev, subcategories: prev.subcategories.filter((_, i) => i !== idx) }))}
-                            className="text-gray-400 hover:text-red-500 transition text-lg leading-none"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-red-500">Add at least one subcategory</p>
-                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">City <span className="text-red-500">*</span></label>
+                  <input 
+                    value={collegeForm.city} 
+                    onChange={e => setCollegeForm({ ...collegeForm, city: e.target.value })} 
+                    placeholder="e.g. Amravati" 
+                    required 
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
+                  />
+                </div>
               </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={deptForm.subcategories.length === 0}
-                className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Department
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-700">A unique college code will be automatically generated upon creation.</p>
+              </div>
+              <button type="submit" className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">
+                Create College
               </button>
             </form>
           )}
 
+          {/* Search */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search by name, city, or code..."
+              value={collegeSearch}
+              onChange={e => setCollegeSearch(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          {/* College List */}
           {loading ? <p className="text-gray-400 text-center py-8">Loading…</p> : (
-            <div className="space-y-2">
-              {departments.map(d => (
-                <div key={d._id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900">{d.name}</p>
-                      <p className="text-xs text-gray-500 font-mono">{d.code}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {d.priority && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          d.priority === 'critical' ? 'bg-red-100 text-red-700' :
-                          d.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                          d.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {d.priority}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600 border-b">
+                    <th className="px-3 py-2 text-left font-semibold">#</th>
+                    <th className="px-3 py-2 text-left font-semibold">Code</th>
+                    <th className="px-3 py-2 text-left font-semibold">College Name</th>
+                    <th className="px-3 py-2 text-left font-semibold">City</th>
+                    <th className="px-3 py-2 text-center font-semibold">Status</th>
+                    <th className="px-3 py-2 text-right font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredColleges.map((college, idx) => (
+                    <tr key={college._id} className="hover:bg-gray-50 transition">
+                      <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                      <td className="px-3 py-2">
+                        {college.code ? (
+                          <span className="font-mono text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">{college.code}</span>
+                        ) : (
+                          <button 
+                            onClick={() => handleGenerateCode(college)}
+                            className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition"
+                          >
+                            Generate Code
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900">{college.name}</td>
+                      <td className="px-3 py-2 text-gray-600">{college.city}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${college.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {college.isActive ? 'Active' : 'Inactive'}
                         </span>
-                      )}
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${d.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {d.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                      {d.isActive && (
-                        <button
-                          onClick={() => handleDeleteDepartment(d)}
-                          className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {/* Subcategories table */}
-                  {d.supportedCategories && d.supportedCategories.length > 0 && (
-                    <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-gray-100 text-gray-600">
-                            <th className="px-3 py-1.5 text-left font-semibold w-10">#</th>
-                            <th className="px-3 py-1.5 text-left font-semibold">Sub Category</th>
-                            <th className="px-3 py-1.5 text-right font-semibold w-32">SLA Time</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {d.supportedCategories.map((cat, i) => (
-                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
-                              <td className="px-3 py-1.5 text-gray-700 font-medium">{typeof cat === 'object' ? cat.name : cat}</td>
-                              <td className="px-3 py-1.5 text-right">
-                                <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium">
-                                  {typeof cat === 'object' && cat.sla ? cat.sla : '—'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {college.isActive && (
+                          <button 
+                            onClick={() => handleDeleteCollege(college)}
+                            className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                          >
+                            Deactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredColleges.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-gray-400">
+                        {collegeSearch ? 'No colleges match your search' : 'No colleges added yet'}
+                      </td>
+                    </tr>
                   )}
-                </div>
-              ))}
-              {departments.length === 0 && <p className="text-gray-400 text-center py-4">No departments yet</p>}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -635,45 +615,21 @@ function ManagePanel({ onDepartmentChange }) {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Email <span className="text-red-500">*</span></label>
                     <input type="email" value={officialForm.email} onChange={e => setOfficialForm({ ...officialForm, email: e.target.value })} placeholder="email@example.com" required className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number <span className="text-red-500">*</span></label>
-                    <input value={officialForm.phone} onChange={e => setOfficialForm({ ...officialForm, phone: e.target.value.replace(/\D/g, '') })} placeholder="10-digit number" required maxLength={10} className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Designation <span className="text-red-500">*</span></label>
-                    <input value={officialForm.designation} onChange={e => setOfficialForm({ ...officialForm, designation: e.target.value })} placeholder="e.g. Executive Engineer" required className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Employee ID <span className="text-gray-400">(optional)</span></label>
-                    <input value={officialForm.employeeId} onChange={e => setOfficialForm({ ...officialForm, employeeId: e.target.value })} placeholder="e.g. EMP-001" className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-                  </div>
                 </div>
               </div>
 
-              {/* Section: Assignment & Role */}
+              {/* Section: Role */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Department & Role</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Select Department <span className="text-red-500">*</span></label>
-                    <select value={officialForm.departmentCode} onChange={e => setOfficialForm({ ...officialForm, departmentCode: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                      <option value="">Select Department</option>
-                      {departments.map(d => <option key={d._id} value={d.code}>{d.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Role <span className="text-red-500">*</span></label>
-                    <div className="flex gap-4 mt-1">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="officialRole" value="department_head" checked={officialForm.role === 'department_head'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
-                        <span className="text-sm text-gray-700">Support Lead</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="officialRole" value="officer" checked={officialForm.role === 'officer'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
-                        <span className="text-sm text-gray-700">Developer</span>
-                      </label>
-                    </div>
-                  </div>
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Role</h3>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="officialRole" value="support" checked={officialForm.role === 'support'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
+                    <span className="text-sm text-gray-700">Support</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="officialRole" value="developer" checked={officialForm.role === 'developer'} onChange={e => setOfficialForm({ ...officialForm, role: e.target.value })} className="text-primary-600 focus:ring-primary-500" />
+                    <span className="text-sm text-gray-700">Developer</span>
+                  </label>
                 </div>
               </div>
 
@@ -694,7 +650,7 @@ function ManagePanel({ onDepartmentChange }) {
 
               <p className="text-xs text-amber-600">Default login password: <span className="font-mono font-bold">Pass@123</span></p>
 
-              <button type="submit" className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">Create {officialForm.role === 'department_head' ? 'Support Lead' : 'Developer'}</button>
+              <button type="submit" className="w-full py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold">Create {officialForm.role === 'support' ? 'Support' : 'Developer'}</button>
             </form>
           )}
 
@@ -703,9 +659,8 @@ function ManagePanel({ onDepartmentChange }) {
             const grouped = {};
             officials.forEach(o => {
               const deptKey = o.departmentCode || o.department || 'unassigned';
-              if (!grouped[deptKey]) grouped[deptKey] = { heads: [], officers: [] };
-              if (o.role === 'department_head') grouped[deptKey].heads.push(o);
-              else grouped[deptKey].officers.push(o);
+              if (!grouped[deptKey]) grouped[deptKey] = { officers: [] };
+              grouped[deptKey].officers.push(o);
             });
             const deptNames = {};
             departments.forEach(d => { deptNames[d.code] = d.name; });
@@ -722,37 +677,10 @@ function ManagePanel({ onDepartmentChange }) {
                         <h3 className="font-semibold text-gray-900 text-sm">{deptNames[deptCode] || deptCode}</h3>
                         <p className="text-xs text-gray-500 font-mono">{deptCode}</p>
                       </div>
-                      <span className="text-xs text-gray-500 font-medium">{group.heads.length + group.officers.length} member{group.heads.length + group.officers.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-gray-500 font-medium">{group.officers.length} member{group.officers.length !== 1 ? 's' : ''}</span>
                     </div>
 
-                    {/* Support Lead(s) */}
-                    {group.heads.map(h => (
-                      <div key={h._id} className="px-4 py-3 bg-purple-50 border-b border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                            {h.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">{h.name}</p>
-                            <p className="text-xs text-gray-500">{h.designation || 'Support Lead'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="hidden sm:inline text-gray-500">{h.email}</span>
-                          <span className="hidden sm:inline text-gray-400">|</span>
-                          <span className="hidden sm:inline text-gray-500">{h.phone || '—'}</span>
-                          <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Head</span>
-                          <span className={`px-2 py-0.5 rounded-full ${h.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {h.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                          {h.isActive && (
-                            <button onClick={() => handleDeleteOfficial(h)} className="px-2 py-0.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium">Remove</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Developers */}
+                    {/* Team Members */}
                     {group.officers.length > 0 && (
                       <div className="divide-y divide-gray-100">
                         {group.officers.map((o, idx) => (
@@ -763,14 +691,14 @@ function ManagePanel({ onDepartmentChange }) {
                               </div>
                               <div>
                                 <p className="font-medium text-gray-800 text-sm">{o.name}</p>
-                                <p className="text-xs text-gray-500">{o.designation || 'Developer'}</p>
+                                <p className="text-xs text-gray-500">{o.designation || (o.role === 'support' ? 'Support Engineer' : 'Developer')}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2 text-xs">
                               <span className="hidden sm:inline text-gray-500">{o.email}</span>
                               <span className="hidden sm:inline text-gray-400">|</span>
                               <span className="hidden sm:inline text-gray-500">{o.phone || '—'}</span>
-                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Developer</span>
+                              <span className={`px-2 py-0.5 rounded-full font-medium ${o.role === 'support' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{o.role === 'support' ? 'Support' : 'Developer'}</span>
                               <span className={`px-2 py-0.5 rounded-full ${o.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 {o.isActive ? 'Active' : 'Inactive'}
                               </span>
@@ -783,7 +711,7 @@ function ManagePanel({ onDepartmentChange }) {
                       </div>
                     )}
 
-                    {group.heads.length === 0 && group.officers.length === 0 && (
+                    {group.officers.length === 0 && (
                       <p className="text-gray-400 text-center py-4 text-xs">No officials assigned</p>
                     )}
                   </div>
@@ -850,6 +778,7 @@ export default function EnhancedAdminDashboardPage() {
     priority: '',
     startDate: '',
     endDate: '',
+    sla: '',
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -859,6 +788,20 @@ export default function EnhancedAdminDashboardPage() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashDepartments, setDashDepartments] = useState([]);
+
+  // Assign modal state
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignComplaintId, setAssignComplaintId] = useState(null);
+  const [allOfficials, setAllOfficials] = useState([]);
+  const [selectedOfficialId, setSelectedOfficialId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isClosing, setIsClosing] = useState(null); // holds complaint _id while closing
+  const [expandedHistory, setExpandedHistory] = useState({}); // track expanded assignment history rows
+
+  // Password change modal state
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Build categories dynamically from departments' supportedCategories + AI categories
   const categories = useMemo(() => {
@@ -966,7 +909,14 @@ export default function EnhancedAdminDashboardPage() {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // When setting sla filter, clear status filter and vice versa
+    if (key === 'sla') {
+      setFilters(prev => ({ ...prev, status: '', sla: value }));
+    } else if (key === 'status') {
+      setFilters(prev => ({ ...prev, sla: '', status: value }));
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value }));
+    }
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
@@ -978,12 +928,106 @@ export default function EnhancedAdminDashboardPage() {
       priority: '',
       startDate: '',
       endDate: '',
+      sla: '',
     });
   };
 
   const handleLogout = () => {
     logout();
     navigate('/official-login');
+  };
+
+  // Password change handler
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      addToast('Please fill all fields', 'error');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      addToast('New passwords do not match', 'error');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      addToast('Password must be at least 8 characters', 'error');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const res = await adminApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      if (res.success) {
+        addToast('Password changed successfully', 'success');
+        setPasswordModalOpen(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to change password', 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // ─── Priority change handler ──────────────────────────────────────
+  const handlePriorityChange = async (complaintId, newPriority) => {
+    try {
+      const res = await adminApi.updateComplaint(complaintId, { priority: newPriority });
+      if (res.success) {
+        addToast(`Priority set to ${newPriority}`, 'success');
+        fetchComplaints();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to update priority', 'error');
+    }
+  };
+
+  // ─── Assign / Close handlers ──────────────────────────────────────
+  const openAssignModal = async (complaintId) => {
+    setAssignComplaintId(complaintId);
+    setSelectedOfficialId('');
+    setAssignModalOpen(true);
+    try {
+      const res = await adminApi.getOfficials();
+      if (res.success) setAllOfficials(res.data);
+    } catch (err) {
+      addToast('Failed to load officials', 'error');
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!selectedOfficialId) {
+      addToast('Select an official to assign', 'error');
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      const res = await adminApi.assignComplaint(assignComplaintId, selectedOfficialId);
+      if (res.success) {
+        addToast(res.message || 'Assigned successfully', 'success');
+        setAssignModalOpen(false);
+        fetchComplaints();
+        fetchStats();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Assignment failed', 'error');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleClose = async (complaintId) => {
+    if (!window.confirm('Are you sure you want to close this ticket?')) return;
+    setIsClosing(complaintId);
+    try {
+      const res = await adminApi.updateComplaint(complaintId, { status: 'closed', remarks: 'Closed by Admin' });
+      if (res.success) {
+        addToast('Ticket closed', 'success');
+        fetchComplaints();
+        fetchStats();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to close ticket', 'error');
+    } finally {
+      setIsClosing(null);
+    }
   };
 
   if (!isAuthenticated) return null;
@@ -1027,9 +1071,16 @@ export default function EnhancedAdminDashboardPage() {
 
               <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-200">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{admin?.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{admin?.role?.replace('_', ' ')}</p>
+                  <p className="text-sm font-medium text-gray-900">{admin?.name || 'Admin'}</p>
+                  <p className="text-xs text-gray-500 capitalize">{admin?.role?.replace('_', ' ') || 'Super Admin'}</p>
                 </div>
+                <button
+                  onClick={() => setPasswordModalOpen(true)}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                  title="Change Password"
+                >
+                  🔑
+                </button>
                 <button
                   onClick={handleLogout}
                   className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
@@ -1180,6 +1231,7 @@ export default function EnhancedAdminDashboardPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('category')}</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('priority')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Assigned To</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Submitted</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Deadline</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('actions')}</th>
@@ -1188,13 +1240,13 @@ export default function EnhancedAdminDashboardPage() {
                 <tbody className="divide-y divide-gray-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-12 text-center">
+                      <td colSpan="8" className="px-4 py-12 text-center">
                         <div className="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
                       </td>
                     </tr>
                   ) : complaints.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan="8" className="px-4 py-12 text-center text-gray-500">
                         {t('no_complaints_found')}
                       </td>
                     </tr>
@@ -1216,7 +1268,24 @@ export default function EnhancedAdminDashboardPage() {
                           <StatusBadge status={complaint.status} />
                         </td>
                         <td className="px-4 py-3">
-                          <PriorityBadge priority={complaint.priority} />
+                          <select
+                            value={complaint.priority || 'medium'}
+                            onChange={(e) => handlePriorityChange(complaint._id, e.target.value)}
+                            className={`text-xs font-medium rounded-full px-2 py-1 border-0 cursor-pointer focus:ring-2 focus:ring-primary-500 ${
+                              complaint.priority === 'critical' ? 'bg-purple-100 text-purple-700' :
+                              complaint.priority === 'high' ? 'bg-red-100 text-red-700' :
+                              complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-green-100 text-green-700'
+                            }`}
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {complaint.assignedTo?.name || <span className="text-gray-400">Unassigned</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">
                           {new Date(complaint.createdAt).toLocaleDateString()}
@@ -1228,12 +1297,31 @@ export default function EnhancedAdminDashboardPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Link
-                            to={`/admin/complaints/${complaint._id}`}
-                            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                          >
-                            {t('view')}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/admin/complaints/${complaint._id}`}
+                              className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                            >
+                              {t('view')}
+                            </Link>
+                            {!['closed', 'rejected'].includes(complaint.status) && (
+                              <>
+                                <button
+                                  onClick={() => openAssignModal(complaint._id)}
+                                  className="px-2 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+                                >
+                                  Assign
+                                </button>
+                                <button
+                                  onClick={() => handleClose(complaint._id)}
+                                  disabled={isClosing === complaint._id}
+                                  className="px-2 py-1 text-xs font-medium rounded bg-green-50 text-green-700 hover:bg-green-100 transition disabled:opacity-50"
+                                >
+                                  {isClosing === complaint._id ? '...' : 'Close'}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1305,6 +1393,116 @@ export default function EnhancedAdminDashboardPage() {
         {view === 'manage' && <ManagePanel onDepartmentChange={fetchDashDepartments} />}
       </main>
 
+      {/* ── Assign Modal ───────────────────────────────────── */}
+      {assignModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Assign Ticket</h2>
+              <button onClick={() => setAssignModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Select a Support Engineer or Developer to assign this ticket to:</p>
+            <select
+              value={selectedOfficialId}
+              onChange={(e) => setSelectedOfficialId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 mb-4"
+            >
+              <option value="">-- Select Official --</option>
+              {allOfficials
+                .filter(o => ['developer', 'support'].includes(o.role) && o.isActive !== false)
+                .map(o => {
+                  const activeCount = complaints.filter(c =>
+                    c.assignedTo?._id === o._id && !['closed', 'rejected'].includes(c.status)
+                  ).length;
+                  return (
+                    <option key={o._id} value={o._id}>
+                      {o.name} ({o.role === 'support' ? 'Support' : 'Developer'}) — {activeCount} active
+                    </option>
+                  );
+                })
+              }
+            </select>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAssignModalOpen(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssign}
+                disabled={isAssigning || !selectedOfficialId}
+                className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50"
+              >
+                {isAssigning ? 'Assigning...' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Password Change Modal ───────────────────────────────────── */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
+              <button onClick={() => setPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter new password (min 8 chars)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setPasswordModalOpen(false); setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={isChangingPassword}
+                className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50"
+              >
+                {isChangingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

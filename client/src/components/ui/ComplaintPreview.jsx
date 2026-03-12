@@ -8,9 +8,11 @@ import {
   CheckCircleIcon,
   GlobeAltIcon,
   ExclamationTriangleIcon,
-  FlagIcon,
   DocumentTextIcon,
   PaperClipIcon,
+  BuildingOfficeIcon,
+  UserIcon,
+  PhoneIcon,
 } from '@heroicons/react/24/outline';
 
 const CATEGORY_META = {
@@ -50,7 +52,10 @@ export default function ComplaintPreview({
   timestamp,
   websiteName,
   issueType,
-  priority,
+  collegeName,
+  collegeCity,
+  facultyName,
+  facultyNumber,
   additionalFiles,
   onEdit,
   readOnly = false,
@@ -60,7 +65,6 @@ export default function ComplaintPreview({
   
   const catMeta = CATEGORY_META[category] || { icon: '🔧', label: category };
   const issueLabel = ISSUE_TYPE_LABELS[issueType] || issueType;
-  const priorityCfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
 
   return (
     <motion.div
@@ -101,13 +105,47 @@ export default function ComplaintPreview({
           </div>
         )}
 
-        {/* Website Name */}
+        {/* College Info */}
+        {collegeName && (
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+            <BuildingOfficeIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('college', 'College')}</p>
+              <p className="font-medium text-gray-900 text-sm">{collegeName}</p>
+              {collegeCity && <p className="text-xs text-gray-500">{collegeCity}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Application Name */}
         {websiteName && (
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
             <GlobeAltIcon className="w-5 h-5 text-primary-600 flex-shrink-0" />
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('website_name', 'Website Name')}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('application_name', 'Application Name')}</p>
               <p className="font-medium text-gray-900 text-sm">{websiteName}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Faculty Name */}
+        {facultyName && (
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <UserIcon className="w-5 h-5 text-primary-600 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('faculty_name', 'Faculty Name')}</p>
+              <p className="font-medium text-gray-900 text-sm">{facultyName}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Faculty Number */}
+        {facultyNumber && (
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <PhoneIcon className="w-5 h-5 text-primary-600 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('faculty_number', 'Faculty Number')}</p>
+              <p className="font-medium text-gray-900 text-sm">{facultyNumber}</p>
             </div>
           </div>
         )}
@@ -130,24 +168,13 @@ export default function ComplaintPreview({
           )}
         </div>
 
-        {/* Issue Type & Priority row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-2 mb-1">
-              <ExclamationTriangleIcon className="w-4 h-4 text-primary-600" />
-              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('issue_type', 'Issue Type')}</p>
-            </div>
-            <p className="font-medium text-gray-900 text-sm">{issueLabel}</p>
+        {/* Issue Type */}
+        <div className="p-3 bg-gray-50 rounded-xl">
+          <div className="flex items-center gap-2 mb-1">
+            <ExclamationTriangleIcon className="w-4 h-4 text-primary-600" />
+            <p className="text-xs text-gray-500 uppercase tracking-wide">{t('issue_type', 'Issue Type')}</p>
           </div>
-          <div className="p-3 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-2 mb-1">
-              <FlagIcon className="w-4 h-4 text-primary-600" />
-              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('priority', 'Priority')}</p>
-            </div>
-            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${priorityCfg.color}`}>
-              {priorityCfg.label}
-            </span>
-          </div>
+          <p className="font-medium text-gray-900 text-sm">{issueLabel}</p>
         </div>
 
         {/* Description */}

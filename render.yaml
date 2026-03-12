@@ -1,41 +1,12 @@
 services:
-  # Backend API Service
-  - type: web
-    name: tech-support-api
-    runtime: node
-    region: oregon
-    rootDir: server
-    buildCommand: npm install
-    startCommand: node server.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: MONGODB_URI
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: CLIENT_URL
-        fromService:
-          name: tech-support-client
-          type: web
-          property: host
-      - key: UPLOAD_DIR
-        value: ./uploads
-    healthCheckPath: /health
-
-  # Frontend Static Site
+  # Frontend Static Site (free)
   - type: web
     name: tech-support-client
     runtime: static
+    plan: static
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          name: tech-support-api
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
     headers:
       - path: /*
         name: Cache-Control

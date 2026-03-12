@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collegeApi } from '../services/api';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -67,12 +68,6 @@ const ISSUE_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-const PRIORITIES = [
-  { value: 'low', label: 'Low', color: 'border-green-400 bg-green-50 text-green-700', activeColor: 'border-green-500 bg-green-500 text-white ring-2 ring-green-200' },
-  { value: 'medium', label: 'Medium', color: 'border-yellow-400 bg-yellow-50 text-yellow-700', activeColor: 'border-yellow-500 bg-yellow-500 text-white ring-2 ring-yellow-200' },
-  { value: 'high', label: 'High', color: 'border-red-400 bg-red-50 text-red-700', activeColor: 'border-red-500 bg-red-500 text-white ring-2 ring-red-200' },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 1 — Issue Details (merged form)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,8 +75,9 @@ function IssueDetailsStep({
   websiteName, onWebsiteNameChange,
   selectedCategory, onCategorySelect,
   issueType, onIssueTypeChange,
-  priority, onPriorityChange,
   description, onDescriptionChange,
+  facultyName, onFacultyNameChange,
+  facultyNumber, onFacultyNumberChange,
   image, onCapture, onFileUpload, onRetake,
   additionalFiles, onAdditionalFilesChange,
 }) {
@@ -171,16 +167,44 @@ function IssueDetailsStep({
         </p>
       </div>
 
-      {/* Website Name */}
+      {/* Application Name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('website_name', 'Website Name')} <span className="text-red-500">*</span>
+          {t('application_name', 'Application Name')} <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={websiteName}
           onChange={e => onWebsiteNameChange(e.target.value)}
-          placeholder={t('website_name_placeholder', 'e.g. ABC University Portal')}
+          placeholder={t('application_name_placeholder', 'e.g. ABC University Portal')}
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+        />
+      </div>
+
+      {/* Faculty Name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {t('faculty_name', 'Faculty Name')} <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={facultyName}
+          onChange={e => onFacultyNameChange(e.target.value)}
+          placeholder={t('faculty_name_placeholder', 'e.g. John Smith')}
+          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+        />
+      </div>
+
+      {/* Faculty Number */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {t('faculty_number', 'Faculty Number')} <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="tel"
+          value={facultyNumber}
+          onChange={e => onFacultyNumberChange(e.target.value)}
+          placeholder={t('faculty_number_placeholder', 'e.g. 9876543210')}
           className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
         />
       </div>
@@ -220,27 +244,6 @@ function IssueDetailsStep({
         </select>
       </div>
 
-      {/* Priority */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('priority', 'Priority')}
-        </label>
-        <div className="grid grid-cols-3 gap-3">
-          {PRIORITIES.map(p => (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => onPriorityChange(p.value)}
-              className={`py-2.5 px-3 rounded-xl border-2 text-sm font-medium transition ${
-                priority === p.value ? p.activeColor : p.color
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Description */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -250,8 +253,7 @@ function IssueDetailsStep({
           <textarea
             value={description}
             onChange={e => onDescriptionChange(e.target.value)}
-            rows={3}
-            maxLength={2000}
+            rows={4}
             placeholder={t('description_placeholder', 'Describe the issue in detail… (steps to reproduce, error messages, etc.)')}
             className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm"
           />
@@ -268,12 +270,9 @@ function IssueDetailsStep({
             </svg>
           </button>
         </div>
-        <div className="flex justify-between mt-1">
-          <p className="text-xs text-gray-400">
-            {isListening && <span className="text-red-500">🎤 Listening...</span>}
-          </p>
-          <p className="text-xs text-gray-400">{description.length}/2000</p>
-        </div>
+        <p className="text-xs text-gray-400 mt-1">
+          {isListening && <span className="text-red-500">🎤 Listening...</span>}
+        </p>
       </div>
 
       {/* Screenshot Upload */}
@@ -381,7 +380,10 @@ function PreviewStep({ data, onEdit }) {
         timestamp={data.timestamp}
         websiteName={data.websiteName}
         issueType={data.issueType}
-        priority={data.priority}
+        collegeName={data.collegeName}
+        collegeCity={data.collegeCity}
+        facultyName={data.facultyName}
+        facultyNumber={data.facultyNumber}
         additionalFiles={data.additionalFiles}
         onEdit={onEdit}
       />
@@ -390,85 +392,45 @@ function PreviewStep({ data, onEdit }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP 0 — Phone Verification
+// STEP 0 — College Verification
 // ─────────────────────────────────────────────────────────────────────────────
-const CITIZEN_API = `${import.meta.env.VITE_API_URL || '/api'}/citizen`;
 
-function PhoneVerifyStep({ phoneNumber, setPhoneNumber, onVerified }) {
+
+function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState('phone'); // 'phone' | 'otp'
-  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(0);
+  const [collegeData, setCollegeData] = useState(null);
 
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
+  const handleLookupCollege = async () => {
+    if (!collegeCode.trim()) {
+      setError('Please enter a college code');
+      return;
     }
-  }, [countdown]);
-
-  const handleRequestOTP = async () => {
     setError('');
     setLoading(true);
+    setCollegeData(null);
     try {
-      const res = await fetch(`${CITIZEN_API}/request-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStep('otp');
-        setCountdown(60);
-        // Dev mode: auto-fill and auto-verify OTP
-        if (data.otp) {
-          setOtp(data.otp);
-          // Small delay to let the OTP register on the server
-          setTimeout(async () => {
-            try {
-              const vRes = await fetch(`${CITIZEN_API}/verify-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phoneNumber, otp: data.otp }),
-              });
-              const vData = await vRes.json();
-              if (vData.success) {
-                onVerified(phoneNumber);
-              }
-            } catch (_) { /* fallback to manual */ }
-          }, 1000);
-        }
+      const res = await collegeApi.getByCode(collegeCode.trim().toUpperCase());
+      if (res.success && res.data) {
+        setCollegeData(res.data);
       } else {
-        setError(data.message || 'Failed to send OTP');
+        setError(res.message || 'College not found');
       }
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (err) {
+      setError('Failed to verify college code');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const res = await fetch(`${CITIZEN_API}/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, otp }),
+  const handleNext = () => {
+    if (collegeData) {
+      onVerified({
+        code: collegeCode.trim().toUpperCase(),
+        name: collegeData.name,
+        city: collegeData.city,
       });
-      const data = await res.json();
-      if (data.success) {
-        onVerified(phoneNumber);
-      } else {
-        setError(data.message || 'Invalid OTP');
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -476,83 +438,68 @@ function PhoneVerifyStep({ phoneNumber, setPhoneNumber, onVerified }) {
     <div className="space-y-6">
       <div className="text-center">
         <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-3xl">📱</span>
+          <span className="text-3xl">🏫</span>
         </div>
         <h2 className="text-xl font-semibold text-gray-900 mb-1">
-          {t('verify_phone', 'Verify Your Phone')}
+          {t('verify_college', 'Enter College Code')}
         </h2>
         <p className="text-sm text-gray-500">
-          {step === 'phone'
-            ? t('verify_phone_desc', 'Enter your mobile number to verify and submit')
-            : t('enter_otp_desc', `Enter the OTP sent to ${phoneNumber}`)}
+          {t('verify_college_desc', 'Enter your college code to continue')}
         </p>
       </div>
 
-      {step === 'phone' ? (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('phone_number', 'Phone Number')}
-              </label>
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              maxLength={10}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          <button
-            onClick={handleRequestOTP}
-            disabled={loading || phoneNumber.length !== 10}
-            className="w-full py-4 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
-          >
-            {loading ? t('sending_otp', 'Sending OTP...') : t('get_otp', 'Get OTP')}
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('enter_otp', 'Enter OTP')}
-            </label>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {t('college_code', 'College Code')}
+          </label>
+          <div className="flex gap-2">
             <input
               type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="Enter 6-digit OTP"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
-              maxLength={6}
+              value={collegeCode}
+              onChange={(e) => {
+                setCollegeCode(e.target.value.toUpperCase());
+                setCollegeData(null);
+                setError('');
+              }}
+              placeholder="e.g. COEP, VJTI, PICT"
+              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg uppercase"
             />
-          </div>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          <button
-            onClick={handleVerifyOTP}
-            disabled={loading || otp.length !== 6}
-            className="w-full py-4 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-          >
-            {loading ? t('verifying', 'Verifying...') : t('verify_continue', 'Verify & Continue')}
-          </button>
-          <div className="flex items-center justify-between text-sm">
             <button
-              type="button"
-              onClick={() => { setStep('phone'); setOtp(''); setError(''); }}
-              className="text-gray-500 hover:text-gray-700"
+              onClick={handleLookupCollege}
+              disabled={loading || !collegeCode.trim()}
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition"
             >
-              ← {t('change_number', 'Change Number')}
-            </button>
-            <button
-              type="button"
-              onClick={handleRequestOTP}
-              disabled={countdown > 0}
-              className="text-primary-600 hover:text-primary-700 disabled:text-gray-400"
-            >
-              {countdown > 0 ? `${t('resend_in', 'Resend in')} ${countdown}s` : t('resend_otp', 'Resend OTP')}
+              {loading ? '...' : t('lookup', 'Lookup')}
             </button>
           </div>
         </div>
-      )}
+
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+        {/* College Details Card */}
+        {collegeData && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-green-600 text-lg">✓</span>
+              <span className="font-medium text-green-800">College Found</span>
+            </div>
+            <div className="pl-6 space-y-1">
+              <p className="text-gray-900 font-semibold text-lg">{collegeData.name}</p>
+              <p className="text-gray-600">{collegeData.city}</p>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={handleNext}
+          disabled={!collegeData}
+          className="w-full py-4 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+        >
+          {t('next', 'Next')}
+          <ArrowRightIcon className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -585,34 +532,19 @@ function SubmitComplaintContent() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(false);
 
-  // Pre-fill phone from URL ?phone=XXXXXXXXXX
+  // ── College verification state
+  const [collegeCode, setCollegeCode] = useState('');
+  const [collegeName, setCollegeName] = useState('');
+  const [collegeCity, setCollegeCity] = useState('');
+  const [collegeVerified, setCollegeVerified] = useState(false);
+
+  // Pre-fill college code from URL ?college=XXX
   useEffect(() => {
-    const p = searchParams.get('phone');
-    if (p && !phoneNumber) {
-      setPhoneNumber(p.replace(/\D/g, '').slice(0, 10));
+    const c = searchParams.get('college');
+    if (c && !collegeCode) {
+      setCollegeCode(c.toUpperCase());
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-detect existing citizen session — skip OTP if already verified
-  useEffect(() => {
-    const citizenToken = localStorage.getItem('citizenToken');
-    if (citizenToken && !phoneVerified) {
-      const API = import.meta.env.VITE_API_URL || '/api';
-      fetch(`${API}/citizen/profile`, {
-        headers: { Authorization: `Bearer ${citizenToken}` },
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success && data.data?.phoneNumber) {
-            const ph = data.data.phoneNumber.replace(/\D/g, '').slice(-10);
-            setPhoneNumber(ph);
-            setPhoneVerified(true);
-            setCurrentStep(1);
-          }
-        })
-        .catch(() => { /* token invalid — user will verify manually */ });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Form data
   const [image, setImage] = useState(null);
@@ -620,7 +552,9 @@ function SubmitComplaintContent() {
   const [description, setDescription] = useState('');
   const [websiteName, setWebsiteName] = useState('');
   const [issueType, setIssueType] = useState('');
-  const [priority, setPriority] = useState('medium');
+  const [facultyName, setFacultyName] = useState('');
+  const [facultyNumber, setFacultyNumber] = useState('');
+  // Priority is now set by admin only — not user
   const [additionalFiles, setAdditionalFiles] = useState([]);
 
   // ── Category state
@@ -628,7 +562,7 @@ function SubmitComplaintContent() {
 
   // 3-step config
   const steps = [
-    { id: 'verify',  label: t('step_verify',  'Verify'),  description: t('phone_verify', 'Phone') },
+    { id: 'verify',  label: t('step_verify',  'Verify'),  description: t('college_verify', 'College') },
     { id: 'details', label: t('step_details', 'Details'), description: t('issue_info', 'Issue Info') },
     { id: 'preview', label: t('step_preview', 'Preview'), description: t('review_submit', 'Review & Submit') },
   ];
@@ -645,7 +579,7 @@ function SubmitComplaintContent() {
           if (draft.description)       setDescription(draft.description);
           if (draft.websiteName)       setWebsiteName(draft.websiteName);
           if (draft.issueType)         setIssueType(draft.issueType);
-          if (draft.priority)          setPriority(draft.priority);
+          // priority is admin-only, skip draft restore
           addToast(t('draft_restored', 'Draft restored'), 'info');
         }
       }
@@ -659,28 +593,39 @@ function SubmitComplaintContent() {
       if (image || selectedCategory || description || websiteName) {
         await saveDraftComplaint({
           image, category: selectedCategory, description,
-          websiteName, issueType, priority,
+          websiteName, issueType,
           timestamp: new Date().toISOString(),
         });
       }
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [image, selectedCategory, description, websiteName, issueType, priority]);
+  }, [image, selectedCategory, description, websiteName, issueType]);
 
   // ── Validation
-  const canProceed = useCallback(() => {
-    switch (currentStep) {
-      case 0: return phoneVerified;
-      case 1: return !!(websiteName.trim() && selectedCategory && issueType && description.trim());
-      case 2: return true;
-      default: return false;
-    }
-  }, [currentStep, websiteName, selectedCategory, issueType, phoneVerified, description]);
-
-  // ── Navigation
-  const goNext = async () => {
-    setCurrentStep(prev => Math.min(prev + 1, 2));
+  const canProceed = () => {
+    if (currentStep === 0) return collegeVerified;
+    if (currentStep === 1) return selectedCategory && websiteName && facultyName && facultyNumber;
+    return true;
   };
+
+  const goNext = () => {
+    if (canProceed()) setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+  };
+
+  // Auto-fill faculty info only for the current college, clear when college changes
+  useEffect(() => {
+    setFacultyName('');
+    setFacultyNumber('');
+    if (collegeVerified && collegeCode) {
+      (async () => {
+        const res = await collegeApi.getLastFacultyForCollege(collegeCode);
+        if (res.success && res.data && res.data.facultyName && res.data.facultyNumber) {
+          setFacultyName(res.data.facultyName);
+          setFacultyNumber(res.data.facultyNumber);
+        }
+      })();
+    }
+  }, [collegeVerified, collegeCode]);
 
   const goBack = () => {
     setCurrentStep(prev => Math.max(prev - 1, 0));
@@ -711,10 +656,13 @@ function SubmitComplaintContent() {
       setSubmitProgress(50);
       formData.append('category', selectedCategory);
       formData.append('description', description || '');
-      formData.append('phoneNumber', phoneNumber);
+      formData.append('collegeCode', collegeCode);
+      formData.append('collegeName', collegeName);
+      formData.append('collegeCity', collegeCity);
       formData.append('websiteName', websiteName);
       formData.append('issueType', issueType);
-      formData.append('priority', priority);
+      formData.append('facultyName', facultyName);
+      formData.append('facultyNumber', facultyNumber);
       formData.append('preferredLanguage', language);
       if (skipDuplicateCheck || confirmNotDuplicate) formData.append('confirmNotDuplicate', 'true');
       if (sessionId) formData.append('sessionId', sessionId);
@@ -771,7 +719,7 @@ function SubmitComplaintContent() {
             setSubmittedComplaintId(null);
             setImage(null); setImageBlob(null);
             setSelectedCategory(''); setWebsiteName('');
-            setIssueType(''); setPriority('medium');
+            setIssueType('');
             setDescription(''); setAdditionalFiles([]);
             setCurrentStep(1);
           }}
@@ -839,12 +787,14 @@ function SubmitComplaintContent() {
               transition={{ duration: 0.2 }}
             >
               {currentStep === 0 && (
-                <PhoneVerifyStep
-                  phoneNumber={phoneNumber}
-                  setPhoneNumber={setPhoneNumber}
-                  onVerified={(phone) => {
-                    setPhoneNumber(phone);
-                    setPhoneVerified(true);
+                <CollegeVerifyStep
+                  collegeCode={collegeCode}
+                  setCollegeCode={setCollegeCode}
+                  onVerified={(college) => {
+                    setCollegeCode(college.code);
+                    setCollegeName(college.name);
+                    setCollegeCity(college.city);
+                    setCollegeVerified(true);
                     setCurrentStep(1);
                   }}
                 />
@@ -857,10 +807,12 @@ function SubmitComplaintContent() {
                   onCategorySelect={setSelectedCategory}
                   issueType={issueType}
                   onIssueTypeChange={setIssueType}
-                  priority={priority}
-                  onPriorityChange={setPriority}
                   description={description}
                   onDescriptionChange={setDescription}
+                  facultyName={facultyName}
+                  onFacultyNameChange={setFacultyName}
+                  facultyNumber={facultyNumber}
+                  onFacultyNumberChange={setFacultyNumber}
                   image={image}
                   onCapture={handleCapture}
                   onFileUpload={handleFileUpload}
@@ -873,7 +825,9 @@ function SubmitComplaintContent() {
                 <PreviewStep
                   data={{
                     image, category: selectedCategory,
-                    description, websiteName, issueType, priority,
+                    description, websiteName, issueType,
+                    collegeCode, collegeName, collegeCity,
+                    facultyName, facultyNumber,
                     additionalFiles,
                     timestamp: new Date().toISOString(),
                   }}
@@ -950,6 +904,8 @@ function SubmitComplaintContent() {
     </div>
   );
 }
+
+// ...existing code...
 
 // Wrapped export
 export default function EnhancedSubmitComplaintPage() {

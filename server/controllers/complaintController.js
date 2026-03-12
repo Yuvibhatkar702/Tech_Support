@@ -53,6 +53,11 @@ exports.createComplaint = async (req, res) => {
       websiteName,
       issueType,
       priority,
+      collegeCode,
+      collegeName,
+      collegeCity,
+      facultyName,
+      facultyNumber,
     } = req.body;
 
     // Validate required fields
@@ -149,8 +154,7 @@ exports.createComplaint = async (req, res) => {
       }));
     }
 
-    // Route complaint to department (DB-backed CategoryMapping → fallback to hardcoded map)
-    const deptInfo = await getDepartmentByCategoryAsync(category);
+    // All complaints go directly to Admin — no auto-department routing
 
     // Create the ticket
     const complaintData = {
@@ -159,6 +163,11 @@ exports.createComplaint = async (req, res) => {
         phoneNumber,
         name: name || '',
         preferredLanguage: preferredLanguage || 'en',
+        collegeCode: collegeCode || '',
+        collegeName: collegeName || '',
+        collegeCity: collegeCity || '',
+        facultyName: facultyName || '',
+        facultyNumber: facultyNumber || '',
       },
       category,
       description: description || '',
@@ -170,7 +179,7 @@ exports.createComplaint = async (req, res) => {
       statusHistory: [{
         status: 'pending',
         changedAt: new Date(),
-        remarks: 'Ticket submitted',
+        remarks: 'Ticket submitted — awaiting admin review',
       }],
       duplicateWarningShown: confirmNotDuplicate || false,
       userConfirmedNotDuplicate: confirmNotDuplicate || false,
@@ -178,15 +187,10 @@ exports.createComplaint = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       estimatedResolution: getEstimatedResolution(category),
-      department: deptInfo.departmentCode,
-      departmentId: deptInfo.departmentId || undefined,
-      departmentName: deptInfo.departmentName || undefined,
     };
 
-    // Add priority if user specified
-    if (priority) {
-      complaintData.priority = priority;
-    }
+    // Priority is set by admin only — always default to 'medium'
+    complaintData.priority = 'medium';
 
     // Add location if coordinates provided
     if (latitude && longitude) {
@@ -466,6 +470,7 @@ exports.getAllComplaints = async (req, res) => {
       startDate,
       endDate,
       search,
+      sla,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.query;
@@ -473,7 +478,11 @@ exports.getAllComplaints = async (req, res) => {
     // Build query
     const query = {};
 
-    if (status) {
+    // Handle SLA filter for overdue complaints
+    if (sla === 'overdue') {
+      query.expectedResolveAt = { $lt: new Date() };
+      query.status = { $nin: ['closed', 'rejected'] };
+    } else if (status) {
       query.status = status;
     }
 
@@ -505,17 +514,29 @@ exports.getAllComplaints = async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
-    const [complaints, total] = await Promise.all([
+    // Status priority: pending/reopened first → in_progress → assigned → closed/rejected last
+    const STATUS_ORDER = { pending: 0, reopened: 1, in_progress: 2, assigned: 3, closed: 4, rejected: 5, duplicate: 6 };
+
+    const [rawComplaints, total] = await Promise.all([
       Complaint.find(query)
-        .sort(sortOptions)
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
         .populate('assignedTo', 'name email')
+        .populate('assignmentHistory.assignedTo', 'name email role')
+        .populate('assignmentHistory.assignedBy', 'name email role')
         .lean(),
       Complaint.countDocuments(query),
     ]);
+
+    // Sort: pending on top, closed/assigned at bottom, then by newest
+    const complaints = rawComplaints.sort((a, b) => {
+      const oa = STATUS_ORDER[a.status] ?? 3;
+      const ob = STATUS_ORDER[b.status] ?? 3;
+      if (oa !== ob) return oa - ob;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
     res.json({
       success: true,
@@ -549,6 +570,8 @@ exports.getComplaint = async (req, res) => {
     const complaint = await Complaint.findById(req.params.id)
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name email')
+      .populate('assignmentHistory.assignedTo', 'name email role')
+      .populate('assignmentHistory.assignedBy', 'name email role')
       .populate('statusHistory.changedBy', 'name email')
       .populate('duplicateOf', 'complaintId status');
 
@@ -585,7 +608,7 @@ exports.updateComplaintStatus = async (req, res) => {
     const { id } = req.params;
     const { status, remarks } = req.body;
 
-    const validStatuses = ['pending', 'in_progress', 'closed', 'rejected', 'duplicate'];
+    const validStatuses = ['pending', 'assigned', 'in_progress', 'closed', 'rejected', 'duplicate'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -673,37 +696,59 @@ exports.assignComplaint = async (req, res) => {
     const { id } = req.params;
     const { adminId } = req.body;
 
-    const complaint = await Complaint.findByIdAndUpdate(
-      id,
-      { assignedTo: adminId },
-      { new: true }
-    ).populate('assignedTo', 'name email');
+    const Admin = require('../models/Admin');
 
+    const complaint = await Complaint.findById(id);
     if (!complaint) {
-      return res.status(404).json({
-        success: false,
-        message: 'Complaint not found',
-      });
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
+
+    // Look up the target official
+    const targetOfficial = await Admin.findById(adminId).select('name email role departmentCode department');
+    if (!targetOfficial) {
+      return res.status(400).json({ success: false, message: 'Target official not found' });
+    }
+
+    // Set assignment fields
+    complaint.assignedTo = targetOfficial._id;
+    complaint.assignedBy = req.admin._id;
+    complaint.assignedAt = new Date();
+    complaint.department = targetOfficial.departmentCode || targetOfficial.department || complaint.department;
+    complaint.status = 'assigned';
+
+    // Track in assignment history
+    complaint.assignmentHistory.push({
+      assignedTo: targetOfficial._id,
+      assignedBy: req.admin._id,
+      assignedAt: new Date(),
+      remarks: `Assigned to ${targetOfficial.name} (${targetOfficial.role}) by Admin`,
+    });
+
+    complaint.statusHistory.push({
+      status: 'assigned',
+      changedAt: new Date(),
+      changedBy: req.admin._id,
+      remarks: `Assigned to ${targetOfficial.name} (${targetOfficial.role}) by Admin`,
+    });
+
+    await complaint.save();
+    await complaint.populate('assignedTo', 'name email');
 
     await AuditLog.log('complaint_assigned', {
       complaint: complaint._id,
       complaintId: complaint.complaintId,
       admin: req.admin._id,
-      details: { assignedTo: adminId },
+      details: { assignedTo: adminId, assigneeName: targetOfficial.name, assigneeRole: targetOfficial.role },
     });
 
     res.json({
       success: true,
-      message: 'Complaint assigned successfully',
+      message: `Complaint assigned to ${targetOfficial.name}`,
       data: complaint,
     });
   } catch (error) {
     console.error('Assign complaint error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to assign complaint',
-    });
+    res.status(500).json({ success: false, message: 'Failed to assign complaint' });
   }
 };
 
@@ -919,7 +964,7 @@ exports.updateComplaint = async (req, res) => {
 
     // Update status if provided
     if (status && status !== complaint.status) {
-      const validStatuses = ['pending', 'in_progress', 'closed', 'rejected', 'duplicate'];
+      const validStatuses = ['pending', 'assigned', 'in_progress', 'closed', 'rejected', 'duplicate'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -939,7 +984,7 @@ exports.updateComplaint = async (req, res) => {
 
     // Update priority if provided
     if (priority) {
-      const validPriorities = ['low', 'medium', 'high', 'urgent'];
+      const validPriorities = ['low', 'medium', 'high', 'critical', 'urgent'];
       if (validPriorities.includes(priority)) {
         complaint.priority = priority;
       }
@@ -1312,5 +1357,31 @@ exports.trackVerifyOTP = async (req, res) => {
   } catch (error) {
     console.error('Track verify OTP error:', error);
     res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+  }
+};
+
+// Get last complaint for a college (public)
+exports.getLastFacultyForCollege = async (req, res) => {
+  try {
+    const { collegeCode } = req.params;
+    if (!collegeCode) {
+      return res.status(400).json({ success: false, message: 'Missing college code' });
+    }
+    // Find the most recent complaint for this college
+    const lastComplaint = await Complaint.findOne({ 'user.collegeCode': collegeCode })
+      .sort({ createdAt: -1 });
+    if (!lastComplaint || !lastComplaint.user.facultyName || !lastComplaint.user.facultyNumber) {
+      return res.json({ success: true, data: null });
+    }
+    res.json({
+      success: true,
+      data: {
+        facultyName: lastComplaint.user.facultyName,
+        facultyNumber: lastComplaint.user.facultyNumber,
+      },
+    });
+  } catch (error) {
+    console.error('Get last faculty error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch faculty info' });
   }
 };

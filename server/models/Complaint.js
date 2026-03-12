@@ -21,6 +21,11 @@ const complaintSchema = new mongoose.Schema({
       default: 'en',
       enum: ['en', 'hi', 'mr'],
     },
+    collegeCode: String,
+    collegeName: String,
+    collegeCity: String,
+    facultyName: String,
+    facultyNumber: String,
   },
   
   // Ticket Details
@@ -44,7 +49,6 @@ const complaintSchema = new mongoose.Schema({
   
   description: {
     type: String,
-    maxlength: 2000,
   },
 
   // Additional file attachments
@@ -166,6 +170,23 @@ const complaintSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
   },
+
+  // Full assignment history trail
+  assignmentHistory: [{
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    assignedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    remarks: String,
+  }],
 
   // Workflow timestamps
   assignedAt: Date,

@@ -1,0 +1,380 @@
+/**
+ * Seed script for importing colleges - 282 unique colleges
+ * Run with: node scripts/seedColleges.js
+ */
+
+require('dotenv').config();
+const mongoose = require('mongoose');
+const College = require('../models/College');
+const config = require('../config');
+
+// 282 unique colleges from the provided list
+const collegesData = [
+  { name: 'M B Science College, Karla', city: 'Karla' },
+  { name: 'Raj Bhawan Mahavidyalaya', city: 'Amravati' },
+  { name: 'Prabodhankar Vidakha Danavari', city: 'Amravati' },
+  { name: 'Smt. Radhikabai Sarda Art, Commerce & Science College, Anjangaon Bari', city: 'Anjangaon Bari' },
+  { name: 'Shreeyash Dhankarasha Mahavidyalaya', city: 'Amravati' },
+  { name: 'Moungui Matara Mahavidyalaya, Dharba', city: 'Dharba' },
+  { name: 'Arts & Commerce College, Yeoda', city: 'Yeoda' },
+  { name: 'Bhaurao Kakatkar College, Nandgaon', city: 'Nandgaon' },
+  { name: 'Prof. Ram Magre Institute of Technology Badnera, Amravati', city: 'Badnera' },
+  { name: 'G.S. Science College Arts Commerce Mahavidyalaya Kharanja Lad', city: 'Kharanja Lad' },
+  { name: 'Insibale Mogha Mohin College, Amravati', city: 'Amravati' },
+  { name: 'N.V.K. Arts Commerce & Science Mahavidyalaya Tiwdpvaskhar', city: 'Tiwdpvaskhar' },
+  { name: 'Panjabrao Deshmukh College Nursing Institute, Amravati', city: 'Amravati' },
+  { name: 'Ghanashyam Mahavidyalaya Arts & Commerce Senior Year', city: 'Amravati' },
+  { name: 'Degree College of Physical Education PYPME', city: 'Amravati' },
+  { name: 'Matsyodari Sadashiv Patel & Science Late Pendharkar Shalwanv Mahavidyalaya Nerpingalai', city: 'Nerpingalai' },
+  { name: 'Marsolshi Washivat Gharvhudra Science College Shiddpravatik', city: 'Shiddpravatik' },
+  { name: 'Bhasari Vidyaghrudha Arts & Commerce College Shiddipravatik', city: 'Shiddipravatik' },
+  { name: 'Office Of The Shri Shivaji Education Society, Amravati', city: 'Amravati' },
+  { name: 'Devsagar Mahavidyalaya College of Arts & Commerce', city: 'Amravati' },
+  { name: 'Golden Kids English Primary School, Amravati', city: 'Amravati' },
+  { name: 'Shakarao Mohite Patil Agriculture College, Bhokardan & Research Center, Amravati', city: 'Amravati' },
+  { name: 'Graudhou Dnyanesweli, Nagadhi Medium High School Abhil', city: 'Abhil' },
+  { name: 'Sankalva Dhanvan Sanshtha Jalivan', city: 'Jalivan' },
+  { name: 'Dr. Dnyanwardhan Sindkhedraja College of Engineering & Technology, Yavatmal', city: 'Yavatmal' },
+  { name: 'K.V.N. Naik Arts & Commerce Naghinaganj, Sanlhyamini', city: 'Sanlhyamini' },
+  { name: 'H.G. Dental College Amravati', city: 'Amravati' },
+  { name: 'Late Subodhandaji Patel Arts & Science College, Risod', city: 'Risod' },
+  { name: 'Arya Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Real Institute Amravati', city: 'Amravati' },
+  { name: 'Hasharwara Chavan Arts & Science Mahavidyalaya, Mangrul', city: 'Mangrul' },
+  { name: 'P.A. Patil College of Engineering & Technology, Amravati', city: 'Amravati' },
+  { name: 'Dr. Babasaheb Ambedkar Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Dnyandeo College, Akola', city: 'Akola' },
+  { name: 'Polytechnic College Badnera, Dist Amravati', city: 'Badnera' },
+  { name: 'Savitri Girls Highschool Shwalidara, Dist. Amravati', city: 'Amravati' },
+  { name: 'Samarxash Vidyanaiketan High School, Nagpur', city: 'Nagpur' },
+  { name: 'Shri Shivaji College & Senior College Akot, Dist. Akola', city: 'Akola' },
+  { name: 'Matiba Mahavidyalaya Chandur By, Dist Amravati', city: 'Chandur' },
+  { name: 'Takshashala Chavan College of Engineering, Ringana Road Sawakagaon, Nagpur', city: 'Nagpur' },
+  { name: 'S.S.Tonakar Arts, Commerce, Science College', city: 'Amravati' },
+  { name: 'Shri Shivaji College of Education Bhimali', city: 'Bhimali' },
+  { name: 'Sant Gadge Baba Amravati University', city: 'Amravati' },
+  { name: 'Government Dental College & Hospital, Amravati', city: 'Amravati' },
+  { name: 'Shikshan Prasarak Mandal Vidyaniketan Medical College VYSHMC', city: 'Amravati' },
+  { name: 'Mahatma Jyotiba Fule Jyotsn Urf Bhimbaiji Naik Arts College Mardad', city: 'Mardad' },
+  { name: 'Shri Shivaji Arts Commerce College, Amravati', city: 'Amravati' },
+  { name: 'NEW ARTS, COMMERCE & SCIENCE COLLEGE, PALEGAON', city: 'Palegaon' },
+  { name: 'N. H. PATIL ARTS & SCIENCE COLLEGE', city: 'Amravati' },
+  { name: 'D. S. AAGE ART, COMMERCE & SCIENCE COLLEGE', city: 'Amravati' },
+  { name: 'Arts Commerce Science College Chullakhan', city: 'Chullakhan' },
+  { name: 'M.G. College Armori', city: 'Armori' },
+  { name: 'Arts College Management', city: 'Amravati' },
+  { name: 'L.K. Arts College', city: 'Amravati' },
+  { name: 'ARTI Commerce Science College', city: 'Amravati' },
+  { name: 'Adarsh Commerce Science College', city: 'Amravati' },
+  { name: 'Shri Shivaji Commerce Science College Chikhli', city: 'Chikhli' },
+  { name: 'Ahilla College Chandur Bazar', city: 'Chandur Bazar' },
+  { name: 'Ashok College Chandur Railway', city: 'Chandur Railway' },
+  { name: 'GHT Mahavidyalaya Amravati', city: 'Amravati' },
+  { name: 'Smt Laxmibai Radhakisan College Amravati', city: 'Amravati' },
+  { name: 'Matoshri Vimalabai Deshmukh Mahavidyalaya', city: 'Amravati' },
+  { name: 'Lokmanya Tilak Mahavidyalaya Chinchwad', city: 'Chinchwad' },
+  { name: 'Shikshan Aani Kayal College Amravati', city: 'Amravati' },
+  { name: 'Navjeevan Sardar Bhau Shaha College', city: 'Amravati' },
+  { name: 'Shri Sant Bhagvan Baba Arts, Commerce & Science College', city: 'Amravati' },
+  { name: 'Mahatma Gandhi Mahavidyala B.S. Ulycerabad', city: 'Ulycerabad' },
+  { name: 'Kamalapushpa Pharmacy College & Research Centre, Dhanka', city: 'Dhanka' },
+  { name: 'Shakuntala Devi Institute Of Nursing', city: 'Amravati' },
+  { name: 'RAMKRISHNA PARAMHANSA INSTITUTE OF ARTS AND SOCIAL SCIENCES, NAGPUR', city: 'Nagpur' },
+  { name: 'B J Potta And BMM Engineering College Amravati', city: 'Amravati' },
+  { name: 'DR S.D. ARTS, COMMERCE AND SCIENCE COLLEGE KORADI PATH', city: 'Koradi Path' },
+  { name: 'SHRI DADAMAHAVIR SAINIKRI ENGLISH SCHOOL DARDRAPUR', city: 'Dardrapur' },
+  { name: 'Government Polytechnic Amravati', city: 'Amravati' },
+  { name: 'Sipat Lahery School Amravati', city: 'Amravati' },
+  { name: 'College of Management and Computer Science, Tamalvadi', city: 'Tamalvadi' },
+  { name: 'Narsamma Mahavidyalaya', city: 'Amravati' },
+  { name: 'Shri Vityal Education Society', city: 'Amravati' },
+  { name: 'Grahamshed Training Centre', city: 'Amravati' },
+  { name: 'Dushamand Graam Charitable Trust, Amravati', city: 'Amravati' },
+  { name: 'Savita M.S Science College', city: 'Amravati' },
+  { name: 'Bhatia Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Bharatiya Mahavidyalaya, Morshi', city: 'Morshi' },
+  { name: 'Prabodhankar Thakare Mahavidyalaya Amravati', city: 'Amravati' },
+  { name: 'Rashtrasant Tukadoji Mahavidyalaya, Anjangaon Surji', city: 'Anjangaon Surji' },
+  { name: 'Sardar Patel Mahavidyalaya, Chandur Bazar', city: 'Chandur Bazar' },
+  { name: 'P R Pote Patil Science & Social College', city: 'Amravati' },
+  { name: 'G.P. Partshed Mahavidyalaya', city: 'Amravati' },
+  { name: 'Arts LiteGH Dhall Mahavidyalaya', city: 'Amravati' },
+  { name: 'Dhamdya Mageb Arts, Commerce & Science College Attapalaipokankurwi', city: 'Attapalaipokankurwi' },
+  { name: 'Indira College of Pharmacy, Nanded', city: 'Nanded' },
+  { name: 'Virspal Gavhal School Khasi Chisin Takedkawnalnt', city: 'Takedkawnalnt' },
+  { name: 'Siddhath Institute of Pharmaceutical Sciences', city: 'Amravati' },
+  { name: 'Jijamata Mahavidyalaya, Nandgaon Buldhana', city: 'Nandgaon' },
+  { name: 'Sant Bhagvan Baba Arts Mahavidyalaya, Sindkhedi Raja', city: 'Sindkhedi Raja' },
+  { name: 'Bapuji Salve Baba Arts And Commerce College', city: 'Amravati' },
+  { name: 'Takalikhan Polytechnic', city: 'Amravati' },
+  { name: 'Jagdamba Mahavidyalaya Athva Mahavidyalaya B.S.S. Ulycerabad', city: 'Ulycerabad' },
+  { name: 'NEW ARTS, COMMERCE & SCIENCE COLLEGE, PUSAD FAM', city: 'Pusad' },
+  { name: 'B D COMM SHRI SHIVAI B ED COLLEGE', city: 'Amravati' },
+  { name: 'Sau Vasudhatai Deshmukh College of Agriculture Badvia Amravati', city: 'Amravati' },
+  { name: 'Late Charitable Public Trust Amravati', city: 'Amravati' },
+  { name: 'Public Work Department, Nagpur', city: 'Nagpur' },
+  { name: 'Late Santhaji Pradesh Arts College, Risalgarh Takli Raji', city: 'Risalgarh' },
+  { name: 'J D Pawar Arts and Science College, Majalgaon', city: 'Majalgaon' },
+  { name: 'B M S Commerce College', city: 'Amravati' },
+  { name: 'R. F. Pale Patil College of Agriculture, Amravati', city: 'Amravati' },
+  { name: 'Smt. Narmadabhai Buddha Mahila Mahavidyalaya, Gadghegaon Shillapur', city: 'Gadghegaon' },
+  { name: 'Shiv Shivaji Arts College, Akola', city: 'Akola' },
+  { name: 'Yashwant Public School, Vidapagar Paratwada', city: 'Paratwada' },
+  { name: 'Mahtka Arts Commerce College & Fandlar Rly', city: 'Amravati' },
+  { name: 'Karmveer Bhaurao Patil Mahavidyalaya, Nagpur', city: 'Nagpur' },
+  { name: 'Bharatiya Bhavan Shwedash Mahavidyalaya', city: 'Amravati' },
+  { name: 'Dhanwate National College, Nagpur', city: 'Nagpur' },
+  { name: 'S.B. City College', city: 'Amravati' },
+  { name: 'Shri Vithal Bed College of Education, Amravati', city: 'Amravati' },
+  { name: 'G.V.L.D Arts & Commerce College Bhanderdara', city: 'Bhanderdara' },
+  { name: 'S.H. Anjangaon Bari & Commerce Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Art Commerce Arts & Commerce College, Malkapur', city: 'Malkapur' },
+  { name: 'Mahatma Fule Mahavidyalaya, Waghoda', city: 'Waghoda' },
+  { name: 'Arts College Late Dr. Babasaheb Ambedkar Marathwada', city: 'Marathwada' },
+  { name: 'Shri Vithal College', city: 'Amravati' },
+  { name: 'Takshashila Ayurved College & Research Centre Ambazari', city: 'Ambazari' },
+  { name: 'Takalimani Mahavidyalaya Amravati', city: 'Amravati' },
+  { name: 'Sau Vasudhatai Deshmukh College of Agriculture, Katepurna Dashchavan', city: 'Katepurna' },
+  { name: 'K.B.H. Polytechnic, Chandur Bazar, Amravati', city: 'Chandur Bazar' },
+  { name: 'Shivram Prasavad Mendhe, Uttarsat Dist. Buldhana', city: 'Buldhana' },
+  { name: 'Randhir Mahavidyalaya', city: 'Amravati' },
+  { name: 'MST College, Agricultural Mahavidyalaya, Akola', city: 'Akola' },
+  { name: 'Canterpret Shivaji Art College, Jawalhar Purna', city: 'Jawalhar Purna' },
+  { name: 'G.S. Mandal & Arts College Dhanvda Kasabad Bazar Ant, Commerce, Science', city: 'Kasabad Bazar' },
+  { name: 'Mahtant Sakhashri Amravati Agricultural & Mahavidyalaya', city: 'Amravati' },
+  { name: 'Shri Shivani Science College, Amravati', city: 'Amravati' },
+  { name: 'Government Polytechnic Badnera', city: 'Badnera' },
+  { name: 'Shri Datta Guru Mahasiddaya The Research In Mang, Akola Of Food Technology, Amravati', city: 'Amravati' },
+  { name: 'G.H. Raisoni College of Engineering and Management, Amravati', city: 'Amravati' },
+  { name: 'Shri Shivaji Science College, Amravati', city: 'Amravati' },
+  { name: 'H.K.B.K. College of Engineering B, Polytechnic, Akot', city: 'Akot' },
+  { name: 'Rajashri Shahu Mahavidyalaya Pusad', city: 'Pusad' },
+  { name: 'Puligina Nan Ranagolde College', city: 'Amravati' },
+  { name: 'Shri Shivaji Arts, Commerce & Science College Akot', city: 'Akot' },
+  { name: 'Shri Shivaji B Ed College of Education, Chikhli', city: 'Chikhli' },
+  { name: 'Shivani Mahavidyalaya Jafrabad', city: 'Jafrabad' },
+  { name: 'Govt. Sarfuddin Mahavidyalya Risod', city: 'Risod' },
+  { name: 'Arts, Commerce & Science College, Amravati', city: 'Amravati' },
+  { name: 'Arts, Commerce & Science & Senior College Babhulkad', city: 'Babhulkad' },
+  { name: 'Shri Pundalik Maharaj Mahavidyalaya, Nandula', city: 'Nandula' },
+  { name: 'Late Smt. S.V. Shrivastava Arts & Commerce College', city: 'Amravati' },
+  { name: 'Government Sc. College, Amravati', city: 'Amravati' },
+  { name: 'Shri Ramdev Mahavidyalaya', city: 'Amravati' },
+  { name: 'Gov College of Arts & Science', city: 'Amravati' },
+  { name: 'D.B. Arts, N.A. Commerce & B.F. Science College, Deonar', city: 'Deonar' },
+  { name: 'S.G.M. College of Physical Education, Akola', city: 'Akola' },
+  { name: 'R.A. Arts, M.K. Commerce And Smt. S.P. Science College, Washim', city: 'Washim' },
+  { name: 'Rajasthan Mahavidyalaya Akola', city: 'Akola' },
+  { name: 'Deshmukh Arjunrao Mahavidyalaya, Nimbhora', city: 'Nimbhora' },
+  { name: 'Institute Of Pharmaceutical Education And Research', city: 'Amravati' },
+  { name: 'Shri Sant Gadge Baba College Of Engineering & Technology', city: 'Amravati' },
+  { name: 'Indubhai Patel Welfare Society Amravati', city: 'Amravati' },
+  { name: 'Vidarbha Youth Welfare Society Amravati', city: 'Amravati' },
+  { name: 'Kale Mahavidyalaya, Vandegaon Dharaswar, Dist. Amravati', city: 'Amravati' },
+  { name: 'Savitribai Girls Highschool Daryamgaon Dist. Amravati', city: 'Amravati' },
+  { name: 'Vidya Pratishthan Amravati', city: 'Amravati' },
+  { name: 'Shivaji College of Biotechnology, Amravati', city: 'Amravati' },
+  { name: 'Shri Shivaji Agriculture College, Amravati', city: 'Amravati' },
+  { name: 'Shakarao Mohite Patil Agriculture Biotechnology & Research Center, Ahemad, Amravati', city: 'Amravati' },
+  { name: 'Ulhaali Mahavidyalaya Atora Shimpi', city: 'Shimpi' },
+  { name: 'Sant Gadge Maharaj Arts and Commerce College, Bhilegaon', city: 'Bhilegaon' },
+  { name: 'Dnyad Vidnya Kashibai College, Jaliper Samoli', city: 'Jaliper' },
+  { name: 'Shiveri Arts Commerce College, Achalpur', city: 'Achalpur' },
+  { name: 'R.A. College', city: 'Amravati' },
+  { name: 'Shri Pundlik Mahavidyalaya', city: 'Amravati' },
+  { name: 'V D P College of Engineering & Technology, Bori To Jhansi', city: 'Bori' },
+  { name: 'Ummed Hajari Ameta Mathis Mahavidyalaya, Joamalali', city: 'Joamalali' },
+  { name: 'VMIT, ACI Vidarbha Laduis Mahavidyalaya, Daltandpeth', city: 'Daltandpeth' },
+  { name: 'Yakeshwari Agrwadi College & Research Center, Amravati', city: 'Amravati' },
+  { name: 'Late Shankarrao Gutte Gramin Polytechnic, Dharmabad', city: 'Dharmabad' },
+  { name: 'Smt. Radhabai Sarda College Of Women, Nizala', city: 'Nizala' },
+  { name: 'Mahatma Fule Arts Commerce & Shivnand Ghauhan Science Mahavidyalaya Warud', city: 'Warud' },
+  { name: 'Late Bhakanraya Shingane Arts Prof. Narananyan Ghavande Science And Ahaldata Sama Jahanshariya Warud', city: 'Warud' },
+  { name: 'Saushan Mahastar Late B.L. Bhumarddar Shindare', city: 'Amravati' },
+  { name: 'Institute of Pharmaceutical Education and Research B Borgaonldeoghar Wartha Mahastar Shingane', city: 'Borgaon' },
+  { name: 'Tru Chatrapati Shahu Maharaj Shiksha Shastra Mahavidyalya Paratvada', city: 'Paratwada' },
+  { name: 'Shri Shivaji Arts Commerce College', city: 'Amravati' },
+  { name: 'R P Pote Patil School Amravati', city: 'Amravati' },
+  { name: 'D B Collage Badnera', city: 'Badnera' },
+  { name: 'Amravati Meghe Arts Commerce & Science College Kelpkampukankitran', city: 'Amravati' },
+  { name: 'Vaspal Ganhal School Khari Chisin Takedkawnini', city: 'Takedkawnini' },
+  { name: 'Shri Institution of Pharmaceutical Sciences', city: 'Amravati' },
+  { name: 'Shri Sant Gagde Mahavidyalaya Arts and Commerce College Bhlegaon', city: 'Bhilegaon' },
+  { name: 'Late Shamrao Shivaji Arts And Commerce College', city: 'Amravati' },
+  { name: 'Shri Shivaji Mahavidyalaya B.S.S. Ulycerabad', city: 'Ulycerabad' },
+  { name: 'Kamladarshanapa Pharmacy College & Pharma Center Dhanke', city: 'Dhanke' },
+  { name: 'R.A College Washim', city: 'Washim' },
+  { name: 'B.S.C College Bhadrawati', city: 'Bhadrawati' },
+  { name: 'R.S. College Akola', city: 'Akola' },
+  { name: 'Shri Shivaji College Of Physical Education Amravati', city: 'Amravati' },
+  { name: 'Mahatma Gandhi Mahavidyalaya Ambajhari', city: 'Ambajhari' },
+  { name: 'Mahatma Fule Arts Commerce & Shivnand Ghaglan Science Mahavidyalaya', city: 'Amravati' },
+  { name: 'T.K. Patel Arts & Commerce College Shegaon', city: 'Shegaon' },
+  { name: 'Anantrao Homeopathic Medical College & Research Center Jhandabla Dama Dist Washim', city: 'Washim' },
+  { name: 'Sant Bhagwan Baba Arts Mahavidyalaya Sindkhedi Raja', city: 'Sindkhedi Raja' },
+  { name: 'Smt. Lx. Arts College Amravati', city: 'Amravati' },
+  { name: 'Arts Commerce And Science College', city: 'Karla' },
+  { name: 'Vidyabharati Mahavidyalaya', city: 'Amravati' },
+  { name: 'Dr. Panjabrao Deshmukh College Of Law, Amravati', city: 'Amravati' },
+  { name: 'Smt. Kesharbai Lahoti Mahavidyalaya', city: 'Amravati' },
+  { name: 'Navjeevan Bagan Sadan, Amravati, Warud', city: 'Warud' },
+  { name: 'Smt. Radhikadevi Arts, Commerce & Science College, Akhampur Kolhi', city: 'Akhampur Kolhi' },
+  { name: 'Shri Sai Degree College Of Arts & Commerce', city: 'Amravati' },
+  { name: 'Adkarli Science College, Shingnapur Ply', city: 'Shingnapur Ply' },
+  { name: 'Mungsaji Maharaj Mahavidyalaya', city: 'Amravati' },
+  { name: 'PR Pj College Amravati', city: 'Amravati' },
+  { name: 'SIPG Spgbp Inst Of Technology Badnera, Amravati', city: 'Badnera' },
+  { name: 'Shri Ganesh Mela Mahavidyalaya Naya, Shivani Khandavari, Pdg Anzal, Wecla', city: 'Amravati' },
+  { name: 'Government Vidarbha Institute of Science and Humanities, Amravati', city: 'Amravati' },
+  { name: 'R. A. Arts & Commerce College, Washim', city: 'Washim' },
+  { name: 'Government Polytechnic Dharni', city: 'Dharni' },
+  { name: 'Siddiks College', city: 'Amravati' },
+  { name: 'Hutatma Rajguru Arts & Commerce College, Rajura', city: 'Rajura' },
+  { name: 'Shri Krantiveer Naik Smarak Maha, Dharni', city: 'Dharni' },
+  { name: 'Shankarlal Agrawal College Of Arts, Commerce And Science, JPLA', city: 'JPLA' },
+  { name: 'Damodharlal Hiralal Mahavidyalaya', city: 'Amravati' },
+  { name: 'Government Polytechnic College, Achalpur', city: 'Achalpur' },
+  { name: 'College Of Social Work, Anjangaon Bari, Chandur', city: 'Chandur' },
+  { name: 'Shankarrao Mohite-Patil Mahavidyalaya, Natepute', city: 'Natepute' },
+  { name: 'Shrimati Godavaribai Ganpatrao Khadse College', city: 'Amravati' },
+  { name: 'Shri. Saibaba Gowardhan Matha Mahavidyalaya Dharmul', city: 'Dharmul' },
+  { name: 'Mahila Mahavidyalaya Amravati', city: 'Amravati' },
+  { name: 'Mahatma Gandhi Nadar Bhausaheb Aba Solunke College Kadegaon', city: 'Kadegaon' },
+  { name: 'Rajarshee Shahu Science College Chandur Bly', city: 'Chandur Bly' },
+  { name: 'Vidyavardhini Mahavidyalaya', city: 'Amravati' },
+  { name: 'Late Yashwantrao Dewadas Arts & Commerce College, Chanp, Sangamner', city: 'Sangamner' },
+  { name: 'Gurunanak Linguistic English Medium High School', city: 'Amravati' },
+  { name: 'Bhairavnath Mahavidyalaya', city: 'Amravati' },
+  { name: 'Late Pandit Gopalri Arts And Science Mahavidyalaya, Charcapiraj', city: 'Charcapiraj' },
+  { name: 'Shreeyash College of Engineering & Technology, Chh. Sambhajinagar', city: 'Chh. Sambhajinagar' },
+  { name: 'Maratha Mandlae College Of Agriculture, Parbhani', city: 'Parbhani' },
+  { name: 'Sau. Sushila Ete Patil Arts & Commerce College Koygaon', city: 'Koygaon' },
+  { name: 'Raosaheb Patwardhan College', city: 'Amravati' },
+  { name: 'Janakira Phule Mahavidyalaya, Wankhed', city: 'Wankhed' },
+  { name: 'Shri Ramlathji Mehta Mahavidyalaya', city: 'Amravati' },
+  { name: 'Shri Santoshji Public Arts & Science College Waslem', city: 'Waslem' },
+  { name: 'Smt. Laxmibai Radhakisan Toshniwal College Of Commerce', city: 'Amravati' },
+  { name: 'Arts Saressad Arts & Science Senior College, Janantor', city: 'Janantor' },
+  { name: 'Ranfini Late Vidyakar Mahavidyalaya Katargaon', city: 'Katargaon' },
+  { name: 'Arts, Commerce & Science College Of Management Khamgaon', city: 'Khamgaon' },
+  { name: 'M S S Arts Commerce And Science College', city: 'Amravati' },
+  { name: 'Shivahari Arts & Commerce College Katkangaon', city: 'Katkangaon' },
+  { name: 'Vidya Bharti Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'P.M.B. Gujarati Mohavidyalaya', city: 'Amravati' },
+  { name: 'Shri H.N. Arts, N.N. Commerce And S.G. Doshi Science College', city: 'Amravati' },
+  { name: 'G. S. Arts, Commerce And Science College, Korlegaon, Mannapawail', city: 'Manapawail' },
+  { name: 'H. R. Patel College Of Engineering & Technology, Amravati', city: 'Amravati' },
+  { name: 'Shri Pundhalik Mahavidyalaya Kandoli, Chimur', city: 'Chimur' },
+  { name: 'Shri Shivsji College Of Arts, Commerce & Science, Akot', city: 'Akot' },
+  { name: 'Kisan Mahavidyalaya', city: 'Amravati' },
+  { name: 'Indraprasth College Of Education, Sakoli, Gondale, Dist. Bhandara', city: 'Sakoli' },
+  { name: 'Arts, Commerce & Science College Narayana School', city: 'Amravati' },
+  { name: 'T R P R Bhuiabai Khandiya Boikhata Bahuudeshiya Shiksha Pras', city: 'Amravati' },
+  { name: 'Arunodya Dnyanpeeth Arts & Science College, Sindikhad', city: 'Sindikhad' },
+  { name: 'Dr. Panjabrao Deshmukh Agrl. Polyclinic, Santragrathali', city: 'Santragrathali' },
+  { name: 'Shri Mahalimi Mahraij Mahavidyalaya Warlhakma Vidya', city: 'Warlhakma' },
+  { name: 'Late Shri Ashok Salunke Mahatma Vidhypeeth Arts & Science', city: 'Amravati' },
+  { name: 'Sant Jafababa Arts & Science College, Pather, Akot', city: 'Akot' },
+  { name: 'Dr. Hari Singh Gour Vishwavidyalay', city: 'Amravati' },
+  { name: 'India College Of Engineering & Technology, Parbhani', city: 'Parbhani' },
+  { name: 'Baburao Dalhir College Of Engineering, Wardha', city: 'Wardha' },
+  { name: 'Krishi Vigyan Kendra, Malkapur', city: 'Malkapur' },
+  { name: 'Arts, Commerce & Science College, Korba', city: 'Korba' },
+  { name: 'Gangadhar Mehartao College Dharasharma', city: 'Dharasharma' },
+  { name: 'Science College Of Engineering And Technology, Badnera', city: 'Badnera' },
+  { name: 'P R Pote Patil Pharmacy College, Amravati', city: 'Amravati' },
+  { name: 'Ambejogai Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Seva Rural College Dharmawan, Tq. Nandgaon Khandeshwar', city: 'Nandgaon Khandeshwar' },
+  { name: 'Saraswati Mahavidyalaya, Amravati', city: 'Amravati' },
+  { name: 'Shiksha Niketan College Of Education', city: 'Amravati' },
+  { name: 'Abasaheb Garware Arts & Science College', city: 'Amravati' },
+  { name: 'Prathamesh Mivan College Of Engineering, Buldahana', city: 'Buldana' },
+  { name: 'Nutan Vidyalay', city: 'Amravati' },
+  { name: 'Rajanulaw Deshmukh College Of Engineering, Nampora', city: 'Nampora' },
+  { name: 'Jay Kisan Late Dr. Sushila Devi Deshmukh Arts And Commerce Mahavidyalaya', city: 'Amravati' },
+  { name: 'Govt College Madhopura Arts And Commerce College, Bhilegaon', city: 'Bhilegaon' },
+  { name: 'Dnyad Vidya Kashibai College, Juliper Salroli', city: 'Juliper Salroli' },
+  { name: 'Shiveri Arts And Commerce College, Achalpur', city: 'Achalpur' },
+  { name: 'Janata Vidyalaya High School Marathi Medium', city: 'Amravati' },
+  { name: 'Dr. Babasaheb Ambedkar Arts College', city: 'Amravati' },
+  { name: 'Shivaji College Nagar Vanga', city: 'Nagar Vanga' },
+  { name: 'Shri. H.N. Shraddanand Bhikchandani Mahavidyalaya', city: 'Amravati' },
+  { name: 'Smt. Gomatidevil Jeevan Dayetmal', city: 'Amravati' },
+  { name: 'Siddharth Institute Of Nursing GNM, Paratwada', city: 'Paratwada' },
+  { name: 'Smt. Z.S. Arts & Commerce College', city: 'Amravati' },
+  { name: 'Live Stock Management & Dairy Production Diploma, Jalagon', city: 'Jalagon' },
+  { name: 'Late Rajkamal College, Akot Taywade', city: 'Akot' },
+  { name: 'Art, Music, Drama School COAM, Nagpur', city: 'Nagpur' },
+  { name: 'Late Shri Anjanrao Deshmukh Arts And Commerce Mahavidyalaya Gudadhi', city: 'Gudadhi' },
+  { name: 'Shrijatadhar Mahavidyalaya Malkapur', city: 'Malkapur' },
+];
+
+async function seedColleges() {
+  try {
+    console.log('Connecting to database...');
+    await mongoose.connect(config.mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('Connected to MongoDB');
+
+    const results = { created: 0, skipped: 0, errors: [] };
+
+    console.log(`Processing ${collegesData.length} colleges...`);
+
+    for (const item of collegesData) {
+      try {
+        // Check if college already exists
+        const existing = await College.findOne({
+          name: { $regex: `^${item.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+          city: { $regex: `^${item.city.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        });
+
+        if (existing) {
+          results.skipped++;
+          continue;
+        }
+
+        // Generate unique code
+        const code = await College.generateUniqueCode(item.name);
+
+        // Create college
+        await College.create({
+          name: item.name.trim(),
+          city: item.city.trim(),
+          code,
+          isActive: true,
+        });
+
+        results.created++;
+        console.log(`Created: ${item.name} (${code})`);
+      } catch (err) {
+        results.errors.push({ name: item.name, error: err.message });
+        console.error(`Error creating ${item.name}:`, err.message);
+      }
+    }
+
+    console.log('\n=== Seed Complete ===');
+    console.log(`Created: ${results.created}`);
+    console.log(`Skipped (duplicates): ${results.skipped}`);
+    console.log(`Errors: ${results.errors.length}`);
+
+    if (results.errors.length > 0) {
+      console.log('\nErrors:');
+      results.errors.forEach(e => console.log(`  - ${e.name}: ${e.error}`));
+    }
+
+    // Display total count
+    const total = await College.countDocuments();
+    console.log(`\nTotal colleges in database: ${total}`);
+
+  } catch (error) {
+    console.error('Seed failed:', error);
+  } finally {
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
+  }
+}
+
+// Run the seed
+seedColleges();

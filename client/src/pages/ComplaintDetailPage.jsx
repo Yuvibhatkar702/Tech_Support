@@ -23,6 +23,8 @@ export default function ComplaintDetailPage() {
     priority: '',
     internalNotes: '',
   });
+  const [officials, setOfficials] = useState([]);
+  const [assignToId, setAssignToId] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -68,17 +70,33 @@ export default function ComplaintDetailPage() {
 
     setIsUpdating(true);
     try {
+      // If assigning to an official, do it first
+      if (assignToId) {
+        await adminApi.assignComplaint(id, assignToId);
+      }
       const result = await adminApi.updateComplaint(id, updateForm);
       if (result.success) {
         addToast('Ticket updated successfully', 'success');
         setShowUpdateModal(false);
+        setAssignToId('');
         fetchComplaint();
       }
     } catch (error) {
       console.error('Error updating complaint:', error);
-      addToast('Failed to update ticket', 'error');
+      addToast(error.response?.data?.message || 'Failed to update ticket', 'error');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const openUpdateModal = async () => {
+    setShowUpdateModal(true);
+    setAssignToId('');
+    try {
+      const res = await adminApi.getOfficials();
+      if (res.success) setOfficials(res.data);
+    } catch (err) {
+      console.error('Failed to load officials:', err);
     }
   };
 
@@ -133,11 +151,6 @@ export default function ComplaintDetailPage() {
                 }`}>
                   {complaint.priority} priority
                 </span>
-                {complaint.source && (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-700 border border-gray-200">
-                    via {complaint.source}
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -158,10 +171,6 @@ export default function ComplaintDetailPage() {
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Language</p>
               <p className="font-medium text-gray-900">{complaint.user?.preferredLanguage?.toUpperCase() || 'EN'}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Source</p>
-              <p className="font-medium text-gray-900">{complaint.source || 'web'}</p>
             </div>
           </div>
         </div>
@@ -220,7 +229,7 @@ export default function ComplaintDetailPage() {
               <p className="font-medium text-gray-900">{complaint.departmentName || complaint.department || 'Unassigned'}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned To</p>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Assigned To (Current)</p>
               <p className="font-medium text-gray-900">{complaint.assignedTo?.name || 'Unassigned'}</p>
             </div>
             {complaint.assignedBy && (
@@ -236,6 +245,37 @@ export default function ComplaintDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Full Assignment History */}
+          {complaint.assignmentHistory?.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Assignment History ({complaint.assignmentHistory.length} records)</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 pr-4 text-xs font-medium text-gray-500 uppercase">#</th>
+                      <th className="text-left py-2 pr-4 text-xs font-medium text-gray-500 uppercase">Assigned To</th>
+                      <th className="text-left py-2 pr-4 text-xs font-medium text-gray-500 uppercase">Assigned By</th>
+                      <th className="text-left py-2 pr-4 text-xs font-medium text-gray-500 uppercase">Date & Time</th>
+                      <th className="text-left py-2 pr-4 text-xs font-medium text-gray-500 uppercase">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {complaint.assignmentHistory.map((h, i) => (
+                      <tr key={i} className={i === complaint.assignmentHistory.length - 1 ? 'bg-blue-50' : ''}>
+                        <td className="py-2 pr-4 text-gray-500">{i + 1}</td>
+                        <td className="py-2 pr-4 font-medium text-gray-900">{h.assignedTo?.name || 'Unknown'}</td>
+                        <td className="py-2 pr-4 text-gray-700">{h.assignedBy?.name || 'System'}</td>
+                        <td className="py-2 pr-4 text-gray-600">{new Date(h.assignedAt).toLocaleString()}</td>
+                        <td className="py-2 pr-4 text-gray-500 italic">{h.remarks || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── SLA & Timeline ─────────────────────────────────── */}
@@ -584,118 +624,7 @@ export default function ComplaintDetailPage() {
           </div>
         </div>
 
-        {/* ── Audit Info ────────────────────────────────────── */}
-        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-600 mb-3">Audit Info</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-gray-500">
-            {complaint.ipAddress && (
-              <div>
-                <p className="uppercase tracking-wide mb-1">IP Address</p>
-                <p className="font-mono">{complaint.ipAddress}</p>
-              </div>
-            )}
-            {complaint.userAgent && (
-              <div className="col-span-2">
-                <p className="uppercase tracking-wide mb-1">User Agent</p>
-                <p className="font-mono truncate" title={complaint.userAgent}>{complaint.userAgent}</p>
-              </div>
-            )}
-            {complaint.whatsappSessionId && (
-              <div>
-                <p className="uppercase tracking-wide mb-1">WhatsApp Session</p>
-                <p className="font-mono">{complaint.whatsappSessionId}</p>
-              </div>
-            )}
-          </div>
-        </div>
       </main>
-
-      {/* Floating Update Button */}
-      <div className="fixed bottom-6 right-6 z-20">
-        <button
-          onClick={() => setShowUpdateModal(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-full shadow-lg font-medium transition flex items-center gap-2"
-        >
-          ✏️ Update Ticket
-        </button>
-      </div>
-
-      {/* Update Modal */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold mb-4">Update Ticket</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  value={updateForm.status}
-                  onChange={(e) => setUpdateForm(f => ({ ...f, status: e.target.value }))}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="assigned">Assigned</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="closed">Closed</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Priority
-                </label>
-                <select
-                  value={updateForm.priority}
-                  onChange={(e) => setUpdateForm(f => ({ ...f, priority: e.target.value }))}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={updateForm.internalNotes}
-                  onChange={(e) => setUpdateForm(f => ({ ...f, internalNotes: e.target.value }))}
-                  rows={3}
-                  placeholder="Add internal notes..."
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowUpdateModal(false)}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdate}
-                disabled={isUpdating}
-                className="btn-primary flex-1"
-              >
-                {isUpdating ? (
-                  <>
-                    <div className="spinner w-4 h-4 mr-2" />
-                    Updating...
-                  </>
-                ) : (
-                  'Update'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

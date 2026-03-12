@@ -79,18 +79,13 @@ exports.createDepartmentHead = async (req, res) => {
 // ─── ADMIN: Create officer ─────────────────────────────────────────
 exports.createOfficer = async (req, res) => {
   try {
-    const { name, email, phone, designation, employeeId, departmentCode, isActive } = req.body;
+    const { name, email, phone, designation, employeeId, departmentCode, department, role, isActive } = req.body;
 
-    if (!name || !email || !phone || !designation || !departmentCode) {
+    if (!name || !email) {
       return res.status(400).json({
         success: false,
-        message: 'name, email, phone, designation, and departmentCode are required',
+        message: 'name and email are required',
       });
-    }
-
-    const dept = await Department.findOne({ code: departmentCode, isActive: true });
-    if (!dept) {
-      return res.status(400).json({ success: false, message: 'Invalid department code' });
     }
 
     const existing = await Admin.findOne({ email });
@@ -98,32 +93,36 @@ exports.createOfficer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
+    // Determine role - support 'support' and 'developer' roles directly
+    const finalRole = role || 'developer';
+    const finalDepartment = departmentCode || department || finalRole;
+    const finalDesignation = designation || (finalRole === 'support' ? 'Support Engineer' : 'Developer');
+
     const officer = await Admin.create({
       name,
       email,
-      password: 'Pass@123',
-      phone,
-      designation,
+      password: 'TechSupport@123',
+      phone: phone || '',
+      designation: finalDesignation,
       employeeId: employeeId || '',
-      role: 'officer',
-      department: departmentCode,
-      departmentCode,
-      departmentRef: dept._id,
+      role: finalRole,
+      department: finalDepartment,
+      departmentCode: finalDepartment,
       isActive: isActive !== undefined ? isActive : true,
       permissions: {
         canViewComplaints: true,
         canUpdateStatus: true,
-        canAssignComplaints: false,
-        canDeleteComplaints: false,
+        canAssignComplaints: finalRole === 'support',
+        canDeleteComplaints: finalRole === 'developer',
         canManageAdmins: false,
-        canViewAnalytics: false,
-        canExportData: false,
+        canViewAnalytics: true,
+        canExportData: true,
       },
     });
 
     await AuditLog.log('officer_created', {
       admin: req.admin._id,
-      details: { officerId: officer._id, department: departmentCode, designation },
+      details: { officerId: officer._id, role: finalRole, designation: finalDesignation },
     });
 
     res.status(201).json({ success: true, data: officer.toJSON() });
@@ -182,20 +181,53 @@ exports.getOfficialProfile = async (req, res) => {
   }
 };
 
+// ─── OFFICIAL: Change password ──────────────────────────────────────
+exports.changeOfficialPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const official = await Admin.findById(req.admin._id);
+
+    if (!official) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isMatch = await official.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    // Update password (model's pre-save hook will hash it)
+    official.password = newPassword;
+    await official.save();
+
+    // Log the password change
+    await AuditLog.log('password_changed', {
+      admin: official._id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    });
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ success: false, message: 'Failed to change password' });
+  }
+};
+
 // ─── Get all officers of a department (for dept head) ──────────────
 exports.getDepartmentOfficers = async (req, res) => {
   try {
-    const deptCode = req.admin.departmentCode || req.admin.department;
+    // For Tech Support Portal: support users see all developers
     const officers = await Admin.find({
-      role: 'officer',
-      $or: [{ departmentCode: deptCode }, { department: deptCode }],
+      role: 'developer',
       isActive: true,
     }).select('name email phone role departmentCode designation');
 
-    // Count active (non-closed/rejected) complaints per officer
+    // Count active (non-closed/rejected) complaints per developer
     const activeStatuses = ['assigned', 'in_progress', 'reopened'];
     const counts = await Complaint.aggregate([
-      { $match: { department: deptCode, status: { $in: activeStatuses }, assignedTo: { $ne: null } } },
+      { $match: { status: { $in: activeStatuses }, assignedTo: { $ne: null } } },
       { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
     ]);
     const countMap = {};
@@ -217,7 +249,7 @@ exports.getDepartmentOfficers = async (req, res) => {
 // ─── Get all officials (admin) ─────────────────────────────────────
 exports.getAllOfficials = async (req, res) => {
   try {
-    const filter = { role: { $in: ['department_head', 'officer'] } };
+    const filter = { role: { $in: ['developer', 'support'] } };
     if (req.query.department) filter.departmentCode = req.query.department;
     if (req.query.role) filter.role = req.query.role;
 
@@ -232,13 +264,13 @@ exports.getAllOfficials = async (req, res) => {
   }
 };
 
-// ─── DEPARTMENT HEAD: Get complaints for own department ─────────────
+// ─── SUPPORT: Get all complaints (Tech Support Portal) ─────────────
 exports.getDepartmentComplaints = async (req, res) => {
   try {
-    const deptCode = req.admin.departmentCode || req.admin.department;
     const { status, page = 1, limit = 20 } = req.query;
 
-    const filter = { department: deptCode };
+    // For Tech Support Portal: support users see ALL complaints
+    const filter = {};
     if (status) filter.status = status;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -289,23 +321,42 @@ exports.assignOfficer = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
-    // Verify officer exists and belongs to same department
-    const deptCode = req.admin.departmentCode || req.admin.department;
-    const officer = await Admin.findOne({
-      _id: officerId,
-      role: 'officer',
-      $or: [{ departmentCode: deptCode }, { department: deptCode }],
-      isActive: true,
-    });
+    // For admin/super_admin: allow assigning any active officer or department_head
+    // For department_head: restrict to officers in their department
+    let officer;
+    if (['super_admin', 'admin'].includes(req.admin.role)) {
+      officer = await Admin.findOne({
+        _id: officerId,
+        role: { $in: ['officer', 'department_head'] },
+        isActive: true,
+      });
+    } else {
+      const deptCode = req.admin.departmentCode || req.admin.department;
+      officer = await Admin.findOne({
+        _id: officerId,
+        role: 'officer',
+        $or: [{ departmentCode: deptCode }, { department: deptCode }],
+        isActive: true,
+      });
+    }
 
     if (!officer) {
-      return res.status(400).json({ success: false, message: 'Officer not found in your department' });
+      return res.status(400).json({ success: false, message: 'Official not found or inactive' });
     }
 
     complaint.assignedTo = officer._id;
     complaint.assignedBy = req.admin._id;
     complaint.assignedAt = new Date();
     complaint.status = 'assigned';
+
+    // Track in assignment history
+    complaint.assignmentHistory.push({
+      assignedTo: officer._id,
+      assignedBy: req.admin._id,
+      assignedAt: new Date(),
+      remarks: `Assigned to ${officer.name} by ${req.admin.name}`,
+    });
+
     complaint.statusHistory.push({
       status: 'assigned',
       changedAt: new Date(),
@@ -538,20 +589,19 @@ exports.reassignComplaint = async (req, res) => {
 // ─── Department stats ──────────────────────────────────────────────
 exports.getDepartmentStats = async (req, res) => {
   try {
-    const deptCode = req.admin.departmentCode || req.admin.department;
-
+    // For Tech Support Portal: support users see stats for ALL complaints
     const [total, pending, assigned, inProgress, closed, overdue] = await Promise.all([
-      Complaint.countDocuments({ department: deptCode }),
-      Complaint.countDocuments({ department: deptCode, status: 'pending' }),
-      Complaint.countDocuments({ department: deptCode, status: 'assigned' }),
-      Complaint.countDocuments({ department: deptCode, status: 'in_progress' }),
-      Complaint.countDocuments({ department: deptCode, status: 'closed' }),
-      Complaint.countDocuments({ department: deptCode, expectedResolveAt: { $lt: new Date() }, status: { $nin: ['closed'] } }),
+      Complaint.countDocuments({}),
+      Complaint.countDocuments({ status: 'pending' }),
+      Complaint.countDocuments({ status: 'assigned' }),
+      Complaint.countDocuments({ status: 'in_progress' }),
+      Complaint.countDocuments({ status: 'closed' }),
+      Complaint.countDocuments({ expectedResolveAt: { $lt: new Date() }, status: { $nin: ['closed'] } }),
     ]);
 
-    // Officer ratings leaderboard
+    // Developer ratings leaderboard
     const officerRatings = await Complaint.aggregate([
-      { $match: { department: deptCode, 'officerRating.rating': { $exists: true, $ne: null } } },
+      { $match: { 'officerRating.rating': { $exists: true, $ne: null } } },
       { $group: {
         _id: '$assignedTo',
         avgRating: { $avg: '$officerRating.rating' },

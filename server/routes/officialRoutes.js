@@ -21,6 +21,17 @@ router.use(auth);
 // ─── OFFICIAL: Get own profile (verify token validity) ──────────────
 router.get('/profile', officialController.getOfficialProfile);
 
+// ─── OFFICIAL: Change password ──────────────────────────────────────
+router.post(
+  '/change-password',
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  validate,
+  officialController.changeOfficialPassword
+);
+
 // ─── ADMIN: Create department head ──────────────────────────────────
 router.post(
   '/department-heads',
@@ -45,10 +56,7 @@ router.post(
   [
     body('name').notEmpty().withMessage('Name is required'),
     body('email').isEmail().withMessage('Valid email is required'),
-    body('phone').notEmpty().withMessage('Phone number is required'),
-    body('designation').notEmpty().withMessage('Designation is required'),
-    body('employeeId').optional().isString(),
-    body('departmentCode').notEmpty().withMessage('Department code is required'),
+    body('role').optional().isString(),
     body('isActive').optional().isBoolean(),
   ],
   validate,
@@ -83,10 +91,10 @@ router.get(
   officialController.getDepartmentStats
 );
 
-// ─── DEPARTMENT HEAD: Assign officer ────────────────────────────────
+// ─── ADMIN / DEPARTMENT HEAD: Assign officer ───────────────────────
 router.patch(
   '/complaints/:id/assign',
-  authorize('department_head'),
+  authorize('super_admin', 'admin', 'department_head'),
   [
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('officerId').isMongoId().withMessage('Valid officer ID is required'),

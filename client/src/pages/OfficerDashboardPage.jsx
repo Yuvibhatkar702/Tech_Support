@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOfficialStore, useToastStore } from '../store';
 import { officialApi } from '../services/api';
-import { MicrophoneIcon } from '@heroicons/react/24/outline';
+import { MicrophoneIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 // ─── Status badge ───────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -53,7 +53,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
 
 export default function OfficerDashboardPage() {
   const navigate = useNavigate();
-  const { official, isAuthenticated, logout } = useOfficialStore();
+  const { official, token, isAuthenticated, logout } = useOfficialStore();
   const { addToast } = useToastStore();
 
   const [stats, setStats] = useState(null);
@@ -70,6 +70,11 @@ export default function OfficerDashboardPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+
+  // Password change state
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -107,30 +112,13 @@ export default function OfficerDashboardPage() {
     }
   };
 
-  // Verify session is valid on mount (handles cases where server restarted with new JWT secret)
-  useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const res = await officialApi.getProfile();
-        // Update official in store with fresh data from server
-        if (res.success && res.data.official) {
-          // The store already has login, we just verified it's still valid
-        }
-      } catch (error) {
-        console.error('Session verification failed:', error);
-        if (error.response?.status === 401) {
-          addToast('Session expired. Please login again.', 'warning');
-          logout();
-          navigate('/official-login');
-        }
-      }
-    };
-    if (isAuthenticated) {
-      verifySession();
-    }
-  }, [isAuthenticated, logout, navigate, addToast]);
+  // Note: Session verification removed - OfficialProtectedRoute handles auth
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if no token (prevents logout on hydration race)
+    const currentToken = useOfficialStore.getState().token;
+    if (!currentToken) return;
+    
     setLoading(true);
     try {
       const [statsRes, complaintsRes] = await Promise.all([
@@ -151,16 +139,13 @@ export default function OfficerDashboardPage() {
       }
     } catch (error) {
       console.error('Fetch error:', error);
-      if (error.response?.status === 401) {
-        logout();
-        navigate('/official-login');
-      }
+      // Note: 401 handling moved to API interceptor to prevent logout race conditions
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, page, logout, navigate]);
+  }, [statusFilter, page]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { if (token) fetchData(); }, [fetchData, token]);
 
   const handleStartWork = async (complaint) => {
     setActionLoading(complaint._id);
@@ -207,7 +192,34 @@ export default function OfficerDashboardPage() {
     navigate('/official-login');
   };
 
-  if (!isAuthenticated || official?.role !== 'officer') return null;
+  // Password change handler
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      addToast('Please fill all fields', 'error');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      addToast('New passwords do not match', 'error');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      addToast('Password must be at least 8 characters', 'error');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const res = await officialApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      if (res.success) {
+        addToast('Password changed successfully', 'success');
+        setPasswordModalOpen(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to change password', 'error');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -218,9 +230,14 @@ export default function OfficerDashboardPage() {
             <h1 className="text-xl font-bold text-gray-900">Developer Dashboard</h1>
             <p className="text-sm text-gray-500">Welcome, {official?.name}</p>
           </div>
-          <button onClick={handleLogout} className="px-4 py-2 text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition">
-            Logout
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPasswordModalOpen(true)} className="px-4 py-2 text-sm bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg transition" title="Change Password">
+              🔑 Change Password
+            </button>
+            <button onClick={handleLogout} className="px-4 py-2 text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition">
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -469,6 +486,67 @@ export default function OfficerDashboardPage() {
                 className="flex-1 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition"
               >
                 {actionLoading === selectedComplaint?._id ? 'Closing…' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Change Modal */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
+              <button onClick={() => setPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter new password (min 8 chars)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setPasswordModalOpen(false); setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={isChangingPassword}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {isChangingPassword ? 'Changing...' : 'Change Password'}
               </button>
             </div>
           </div>

@@ -137,6 +137,9 @@ router.post(
   complaintController.rateOfficer
 );
 
+// Get last complaint for a college (public)
+router.get('/last-faculty/:collegeCode', complaintController.getLastFacultyForCollege);
+
 /**
  * Admin Routes (protected)
  */
@@ -194,7 +197,7 @@ router.patch(
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('status')
       .notEmpty()
-      .isIn(['pending', 'in_progress', 'closed', 'rejected', 'duplicate'])
+      .isIn(['pending', 'assigned', 'in_progress', 'closed', 'rejected', 'duplicate'])
       .withMessage('Invalid status'),
     body('remarks').optional().isLength({ max: 500 }),
   ],
@@ -224,11 +227,11 @@ router.patch(
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('status')
       .optional()
-      .isIn(['pending', 'in_progress', 'closed', 'rejected', 'duplicate'])
+      .isIn(['pending', 'assigned', 'in_progress', 'closed', 'rejected', 'duplicate'])
       .withMessage('Invalid status'),
     body('priority')
       .optional()
-      .isIn(['low', 'medium', 'high', 'urgent'])
+      .isIn(['low', 'medium', 'high', 'critical', 'urgent'])
       .withMessage('Invalid priority'),
     body('internalNotes').optional().isLength({ max: 1000 }),
     body('remarks').optional().isLength({ max: 500 }),

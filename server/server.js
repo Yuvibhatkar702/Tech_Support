@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const http = require('http');
 const config = require('./config');
-const { complaintRoutes, adminRoutes, whatsappRoutes } = require('./routes');
+const { complaintRoutes, adminRoutes, whatsappRoutes, collegeRoutes } = require('./routes');
 const citizenRoutes = require('./routes/citizenRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const officialRoutes = require('./routes/officialRoutes');
@@ -32,8 +32,6 @@ app.use(helmet({
 
 // CORS configuration
 const PROD_ORIGINS = [
-  'https://tech-support-mu.vercel.app',
-  'https://tech-support-wwgg-rose.vercel.app',
   'https://griviances.vercel.app',
   config.clientUrl,
 ].filter(Boolean);
@@ -45,15 +43,15 @@ const DEV_ORIGINS = [
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Vercel rewrites, etc.)
     if (!origin) return callback(null, true);
 
     const allowed = config.nodeEnv === 'production' ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
 
     if (
       allowed.includes(origin) ||
-      /^https:\/\/tech-support[\w-]*\.vercel\.app$/.test(origin) ||
-      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin) ||
-      /^https:\/\/[\w-]*\.onrender\.com$/.test(origin)
+      // Allow Vercel preview deploys for this project only
+      /^https:\/\/griviances[\w-]*\.vercel\.app$/.test(origin)
     ) {
       return callback(null, true);
     }
@@ -65,18 +63,20 @@ app.use(cors({
   exposedHeaders: ['x-refresh-token'],
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
-  message: {
-    success: false,
-    message: 'Too many requests. Please try again later.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', limiter);
+// Rate limiting (disabled in development for convenience)
+if (config.nodeEnv !== 'development') {
+  const limiter = rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: config.rateLimit.maxRequests,
+    message: {
+      success: false,
+      message: 'Too many requests. Please try again later.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/api/', limiter);
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -94,19 +94,6 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: config.nodeEnv,
-  });
-});
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Tech Support API Server',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      api: '/api',
-    },
   });
 });
 
@@ -161,6 +148,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/citizen', citizenRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/officials', officialRoutes);
+app.use('/api/colleges', collegeRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

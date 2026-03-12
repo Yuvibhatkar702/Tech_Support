@@ -52,7 +52,7 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Protected Route for officials (department_head or officer) — waits for hydration
+// Protected Route for officials (support or developer) — waits for hydration
 function OfficialProtectedRoute({ children, allowedRoles }) {
   const hydrated = useStoreHydrated(useOfficialStore);
   const { isAuthenticated, official } = useOfficialStore();
@@ -82,7 +82,7 @@ function SessionGuard() {
     enabled: true,
   });
 
-  // Official session (officer / department_head)
+  // Official session (support / developer)
   const officialLogout = useOfficialStore((s) => s.logout);
   const getOfficialToken = useCallback(() => useOfficialStore.getState().token, []);
 
@@ -159,21 +159,21 @@ function App() {
           }
         />
         
-        {/* Department Head Dashboard */}
+        {/* Support Dashboard */}
         <Route
           path="/department"
           element={
-            <OfficialProtectedRoute allowedRoles={['department_head']}>
+            <OfficialProtectedRoute allowedRoles={['support']}>
               <DepartmentDashboardPage />
             </OfficialProtectedRoute>
           }
         />
         
-        {/* Officer Dashboard */}
+        {/* Developer Dashboard */}
         <Route
           path="/officer"
           element={
-            <OfficialProtectedRoute allowedRoles={['officer']}>
+            <OfficialProtectedRoute allowedRoles={['developer']}>
               <OfficerDashboardPage />
             </OfficialProtectedRoute>
           }
