@@ -78,7 +78,7 @@ function IssueDetailsStep({
   description, onDescriptionChange,
   facultyName, onFacultyNameChange,
   facultyNumber, onFacultyNumberChange,
-  image, onCapture, onFileUpload, onRetake,
+  images, onCapture, onFileUpload, onRemoveImage,
   additionalFiles, onAdditionalFilesChange,
 }) {
   const { t } = useTranslation();
@@ -86,6 +86,19 @@ function IssueDetailsStep({
   const additionalFilesRef = useRef(null);
   const [cameraMode, setCameraMode] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [touched, setTouched] = useState({});
+  const touch = (field) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  // Field validations
+  const errors = {
+    websiteName: !websiteName.trim() ? 'Application name is required' : null,
+    facultyName: !facultyName.trim() ? 'Faculty name is required' : facultyName.trim().length < 2 ? 'Name must be at least 2 characters' : null,
+    facultyNumber: !facultyNumber.trim() ? 'Faculty number is required' : !/^[0-9]{10}$/.test(facultyNumber.trim()) ? 'Enter a valid 10-digit phone number' : null,
+    selectedCategory: !selectedCategory ? 'Please select a page/module' : null,
+    issueType: !issueType ? 'Please select an issue type' : null,
+    description: !description.trim() ? 'Description is required' : description.trim().length < 10 ? 'Description must be at least 10 characters' : null,
+  };
+  const fieldError = (field) => touched[field] && errors[field];
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
 
@@ -117,10 +130,12 @@ function IssueDetailsStep({
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    onFileUpload(url, file);
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const url = URL.createObjectURL(file);
+      onFileUpload(url, file);
+    });
+    e.target.value = '';
   };
 
   const handleAdditionalFiles = (e) => {
@@ -176,9 +191,11 @@ function IssueDetailsStep({
           type="text"
           value={websiteName}
           onChange={e => onWebsiteNameChange(e.target.value)}
+          onBlur={() => touch('websiteName')}
           placeholder={t('application_name_placeholder', 'e.g. ABC University Portal')}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('websiteName') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         />
+        {fieldError('websiteName') && <p className="text-xs text-red-500 mt-1">{errors.websiteName}</p>}
       </div>
 
       {/* Faculty Name */}
@@ -190,9 +207,11 @@ function IssueDetailsStep({
           type="text"
           value={facultyName}
           onChange={e => onFacultyNameChange(e.target.value)}
+          onBlur={() => touch('facultyName')}
           placeholder={t('faculty_name_placeholder', 'e.g. John Smith')}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('facultyName') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         />
+        {fieldError('facultyName') && <p className="text-xs text-red-500 mt-1">{errors.facultyName}</p>}
       </div>
 
       {/* Faculty Number */}
@@ -203,10 +222,13 @@ function IssueDetailsStep({
         <input
           type="tel"
           value={facultyNumber}
-          onChange={e => onFacultyNumberChange(e.target.value)}
+          onChange={e => onFacultyNumberChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+          onBlur={() => touch('facultyNumber')}
           placeholder={t('faculty_number_placeholder', 'e.g. 9876543210')}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+          maxLength={10}
+          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('facultyNumber') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         />
+        {fieldError('facultyNumber') && <p className="text-xs text-red-500 mt-1">{errors.facultyNumber}</p>}
       </div>
 
       {/* Page / Module (Category) */}
@@ -217,7 +239,8 @@ function IssueDetailsStep({
         <select
           value={selectedCategory}
           onChange={e => onCategorySelect(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white"
+          onBlur={() => touch('selectedCategory')}
+          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white ${fieldError('selectedCategory') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         >
           <option value="">{t('select_module_placeholder', '-- Select Page/Module --')}</option>
           {ALL_CATEGORIES.map(cat => {
@@ -225,6 +248,7 @@ function IssueDetailsStep({
             return <option key={cat} value={cat}>{m.icon} {m.label}</option>;
           })}
         </select>
+        {fieldError('selectedCategory') && <p className="text-xs text-red-500 mt-1">{errors.selectedCategory}</p>}
       </div>
 
       {/* Issue Type */}
@@ -235,13 +259,15 @@ function IssueDetailsStep({
         <select
           value={issueType}
           onChange={e => onIssueTypeChange(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white"
+          onBlur={() => touch('issueType')}
+          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white ${fieldError('issueType') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         >
           <option value="">{t('select_issue_type', '-- Select Issue Type --')}</option>
           {ISSUE_TYPES.map(it => (
             <option key={it.value} value={it.value}>{it.label}</option>
           ))}
         </select>
+        {fieldError('issueType') && <p className="text-xs text-red-500 mt-1">{errors.issueType}</p>}
       </div>
 
       {/* Description */}
@@ -253,9 +279,10 @@ function IssueDetailsStep({
           <textarea
             value={description}
             onChange={e => onDescriptionChange(e.target.value)}
+            onBlur={() => touch('description')}
             rows={4}
             placeholder={t('description_placeholder', 'Describe the issue in detail… (steps to reproduce, error messages, etc.)')}
-            className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm"
+            className={`w-full px-4 py-3 pr-12 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm ${fieldError('description') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
           />
           <button
             type="button"
@@ -272,51 +299,55 @@ function IssueDetailsStep({
         </div>
         <p className="text-xs text-gray-400 mt-1">
           {isListening && <span className="text-red-500">🎤 Listening...</span>}
+          {!isListening && fieldError('description') && <span className="text-red-500">{errors.description}</span>}
         </p>
       </div>
 
       {/* Screenshot Upload */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('screenshot', 'Screenshot')}
+          {t('screenshots', 'Screenshots')}
+          <span className="text-gray-400 font-normal ml-1">({t('optional', 'optional')})</span>
         </label>
-        {image ? (
-          <div className="space-y-2">
-            <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-gray-100">
-              <img src={image} alt="Screenshot" className="w-full h-full object-cover" />
-              <div className="absolute bottom-2 right-2 px-2 py-1 bg-green-500 text-white rounded-full text-xs flex items-center gap-1">
-                <CheckIcon className="w-3 h-3" /> Ready
+
+        {/* Existing images grid */}
+        {images.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {images.map((img, idx) => (
+              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 group">
+                <img src={img.dataUrl} alt={`Screenshot ${idx + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onRemoveImage(idx)}
+                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={onRetake}
-              className="w-full py-2 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition flex items-center justify-center gap-2 text-sm"
-            >
-              <CameraIcon className="w-4 h-4" /> {t('retake_change', 'Change Screenshot')}
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setCameraMode(true)}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 hover:bg-primary-100 transition"
-            >
-              <CameraIcon className="w-8 h-8 text-primary-600" />
-              <span className="text-xs font-medium text-primary-700">{t('use_camera', 'Camera')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition"
-            >
-              <PhotoIcon className="w-8 h-8 text-gray-600" />
-              <span className="text-xs font-medium text-gray-700">{t('upload_file', 'Upload')}</span>
-            </button>
+            ))}
           </div>
         )}
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+        {/* Add more images */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setCameraMode(true)}
+            className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 hover:bg-primary-100 transition"
+          >
+            <CameraIcon className="w-8 h-8 text-primary-600" />
+            <span className="text-xs font-medium text-primary-700">{t('use_camera', 'Camera')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition"
+          >
+            <PhotoIcon className="w-8 h-8 text-gray-600" />
+            <span className="text-xs font-medium text-gray-700">{t('upload_file', 'Upload')}</span>
+          </button>
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
       </div>
 
       {/* Additional Files */}
@@ -374,7 +405,7 @@ function PreviewStep({ data, onEdit }) {
       </div>
 
       <ComplaintPreview
-        image={data.image}
+        images={data.images}
         category={data.category}
         description={data.description}
         timestamp={data.timestamp}
@@ -455,15 +486,19 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
           </label>
           <div className="flex gap-2">
             <input
-              type="text"
+              type="tel"
               value={collegeCode}
               onChange={(e) => {
-                setCollegeCode(e.target.value.toUpperCase());
+                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setCollegeCode(val);
                 setCollegeData(null);
                 setError('');
               }}
-              placeholder="e.g. COEP, VJTI, PICT"
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg uppercase"
+              placeholder="e.g. 1234567890"
+              maxLength={10}
+              inputMode="numeric"
+              pattern="[0-9]{10}"
+              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
             />
             <button
               onClick={handleLookupCollege}
@@ -542,13 +577,12 @@ function SubmitComplaintContent() {
   useEffect(() => {
     const c = searchParams.get('college');
     if (c && !collegeCode) {
-      setCollegeCode(c.toUpperCase());
+      setCollegeCode(c);
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Form data
-  const [image, setImage] = useState(null);
-  const [imageBlob, setImageBlob] = useState(null);
+  const [images, setImages] = useState([]);  // Array of { dataUrl, blob }
   const [description, setDescription] = useState('');
   const [websiteName, setWebsiteName] = useState('');
   const [issueType, setIssueType] = useState('');
@@ -574,7 +608,8 @@ function SubmitComplaintContent() {
       if (draft?.savedAt) {
         const hrs = (Date.now() - new Date(draft.savedAt).getTime()) / 3_600_000;
         if (hrs < 24) {
-          if (draft.image)             setImage(draft.image);
+          if (draft.images)            setImages(draft.images);
+          else if (draft.image)         setImages([{ dataUrl: draft.image, blob: null }]);
           if (draft.category)          setSelectedCategory(draft.category);
           if (draft.description)       setDescription(draft.description);
           if (draft.websiteName)       setWebsiteName(draft.websiteName);
@@ -590,21 +625,22 @@ function SubmitComplaintContent() {
   useEffect(() => {
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
-      if (image || selectedCategory || description || websiteName) {
+      if (images.length || selectedCategory || description || websiteName) {
         await saveDraftComplaint({
-          image, category: selectedCategory, description,
+          images: images.map(i => ({ dataUrl: i.dataUrl })),
+          category: selectedCategory, description,
           websiteName, issueType,
           timestamp: new Date().toISOString(),
         });
       }
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [image, selectedCategory, description, websiteName, issueType]);
+  }, [images, selectedCategory, description, websiteName, issueType]);
 
   // ── Validation
   const canProceed = () => {
     if (currentStep === 0) return collegeVerified;
-    if (currentStep === 1) return selectedCategory && websiteName && facultyName && facultyNumber;
+    if (currentStep === 1) return websiteName.trim() && facultyName.trim() && /^[0-9]{10}$/.test(facultyNumber.trim()) && selectedCategory && issueType && description.trim().length >= 10;
     return true;
   };
 
@@ -646,11 +682,11 @@ function SubmitComplaintContent() {
       setSubmitProgress(30);
       const formData = new FormData();
 
-      // Compress and append screenshot if present
-      if (image) {
-        const compressed = await compressDataUrl(image, { maxSizeMB: 0.5, maxWidthOrHeight: 1920 });
+      // Compress and append screenshot images if present
+      for (let i = 0; i < images.length; i++) {
+        const compressed = await compressDataUrl(images[i].dataUrl, { maxSizeMB: 0.5, maxWidthOrHeight: 1920 });
         const blob = await fetch(compressed.dataUrl).then(r => r.blob());
-        formData.append('image', blob, 'screenshot.jpg');
+        formData.append('image', blob, `screenshot-${i + 1}.jpg`);
       }
 
       setSubmitProgress(50);
@@ -703,10 +739,10 @@ function SubmitComplaintContent() {
     }
   };
 
-  // ── Image handlers
-  const handleCapture = (dataUrl, blob) => { setImage(dataUrl); setImageBlob(blob); };
-  const handleFileUpload = (dataUrl, file) => { setImage(dataUrl); setImageBlob(file); };
-  const handleRetake = () => { setImage(null); setImageBlob(null); };
+  // ── Image handlers (multiple)
+  const handleCapture = (dataUrl, blob) => { setImages(prev => [...prev, { dataUrl, blob }]); };
+  const handleFileUpload = (dataUrl, file) => { setImages(prev => [...prev, { dataUrl, blob: file }]); };
+  const handleRemoveImage = (index) => { setImages(prev => prev.filter((_, i) => i !== index)); };
 
   // ── Success screen
   if (submittedComplaintId) {
@@ -719,7 +755,7 @@ function SubmitComplaintContent() {
           onTrackStatus={() => navigate(`/track/${submittedComplaintId}`)}
           onNewComplaint={() => {
             setSubmittedComplaintId(null);
-            setImage(null); setImageBlob(null);
+            setImages([]);
             setSelectedCategory(''); setWebsiteName('');
             setIssueType('');
             setDescription(''); setAdditionalFiles([]);
@@ -815,10 +851,10 @@ function SubmitComplaintContent() {
                   onFacultyNameChange={setFacultyName}
                   facultyNumber={facultyNumber}
                   onFacultyNumberChange={setFacultyNumber}
-                  image={image}
+                  images={images}
                   onCapture={handleCapture}
                   onFileUpload={handleFileUpload}
-                  onRetake={handleRetake}
+                  onRemoveImage={handleRemoveImage}
                   additionalFiles={additionalFiles}
                   onAdditionalFilesChange={setAdditionalFiles}
                 />
@@ -826,7 +862,7 @@ function SubmitComplaintContent() {
               {currentStep === 2 && (
                 <PreviewStep
                   data={{
-                    image, category: selectedCategory,
+                    images, category: selectedCategory,
                     description, websiteName, issueType,
                     collegeCode, collegeName, collegeCity,
                     facultyName, facultyNumber,

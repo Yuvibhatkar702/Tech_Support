@@ -98,45 +98,53 @@ exports.createComplaint = async (req, res) => {
     // Generate complaint ID
     const complaintId = await Complaint.generateComplaintId();
 
-    // Process uploaded screenshot image
+    // Process uploaded screenshot images (multiple)
     let imageData = null;
-    const uploadedImage = req.files && req.files.image && req.files.image[0];
-    if (uploadedImage) {
-      const originalPath = uploadedImage.path;
-      const compressedFileName = `compressed-${uploadedImage.filename}`;
-      const compressedPath = path.join(path.dirname(originalPath), compressedFileName);
+    let imagesData = [];
+    const uploadedImages = req.files && req.files.image;
+    if (uploadedImages && uploadedImages.length > 0) {
+      for (const uploadedImage of uploadedImages) {
+        const originalPath = uploadedImage.path;
+        const compressedFileName = `compressed-${uploadedImage.filename}`;
+        const compressedPath = path.join(path.dirname(originalPath), compressedFileName);
 
-      // Compress image using sharp
-      await sharp(originalPath)
-        .resize(1920, 1920, {
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .jpeg({ quality: config.image.compressedQuality })
-        .toFile(compressedPath);
+        // Compress image using sharp
+        await sharp(originalPath)
+          .resize(1920, 1920, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: config.image.compressedQuality })
+          .toFile(compressedPath);
 
-      const compressedStats = fs.statSync(compressedPath);
+        const compressedStats = fs.statSync(compressedPath);
 
-      // Remove original if compression successful
-      fs.unlinkSync(originalPath);
+        // Remove original if compression successful
+        fs.unlinkSync(originalPath);
 
-      imageData = {
-        originalName: uploadedImage.originalname,
-        fileName: compressedFileName,
-        filePath: compressedPath,
-        mimeType: 'image/jpeg',
-        size: uploadedImage.size,
-        compressedSize: compressedStats.size,
-        capturedAt: gpsTimestamp ? new Date(gpsTimestamp) : new Date(),
-      };
+        const entry = {
+          originalName: uploadedImage.originalname,
+          fileName: compressedFileName,
+          filePath: compressedPath,
+          mimeType: 'image/jpeg',
+          size: uploadedImage.size,
+          compressedSize: compressedStats.size,
+          capturedAt: gpsTimestamp ? new Date(gpsTimestamp) : new Date(),
+        };
+
+        imagesData.push(entry);
+      }
+
+      // Keep first image in legacy `image` field for backward compatibility
+      imageData = imagesData[0];
 
       // Log image compression
       await AuditLog.log('image_compressed', {
         complaintId,
         details: {
-          originalSize: uploadedImage.size,
-          compressedSize: compressedStats.size,
-          compressionRatio: ((1 - compressedStats.size / uploadedImage.size) * 100).toFixed(2) + '%',
+          count: imagesData.length,
+          totalOriginalSize: uploadedImages.reduce((s, f) => s + f.size, 0),
+          totalCompressedSize: imagesData.reduce((s, f) => s + f.compressedSize, 0),
         },
       });
     }
@@ -174,6 +182,7 @@ exports.createComplaint = async (req, res) => {
       websiteName: websiteName || '',
       issueType: issueType || 'other',
       image: imageData,
+      images: imagesData,
       additionalFiles: additionalFilesData,
       status: 'pending',
       statusHistory: [{

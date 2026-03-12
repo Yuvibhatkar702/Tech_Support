@@ -514,7 +514,7 @@ async function seedColleges() {
         }
 
         // Generate unique code
-        const code = await College.generateUniqueCode(item.name);
+        const code = await College.generateUniqueCode();
 
         // Create college
         await College.create({

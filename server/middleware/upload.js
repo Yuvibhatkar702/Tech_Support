@@ -72,7 +72,7 @@ const uploadTicketFiles = multer({
   fileFilter: multiFileFilter,
   limits: {
     fileSize: config.image.maxSizeMB * 1024 * 1024,
-    files: 6, // 1 screenshot + up to 5 additional files
+    files: 15, // up to 10 screenshots + up to 5 additional files
   },
 });
 

@@ -46,6 +46,7 @@ const PRIORITY_CONFIG = {
 };
 
 export default function ComplaintPreview({
+  images,
   image,
   category,
   description,
@@ -82,28 +83,36 @@ export default function ComplaintPreview({
       </div>
 
       <div className="p-5 space-y-4">
-        {/* Screenshot */}
-        {image && (
-          <div className="relative">
-            <div className="aspect-video rounded-xl overflow-hidden bg-gray-100">
-              <img src={image} alt="Screenshot" className="w-full h-full object-cover" />
-            </div>
-            {!readOnly && onEdit && (
-              <button
-                onClick={() => onEdit(1)}
-                className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition"
-              >
-                <CameraIcon className="w-5 h-5" />
-              </button>
-            )}
-            {timestamp && (
-              <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white flex items-center gap-1">
-                <CalendarIcon className="w-3 h-3" />
-                {new Date(timestamp).toLocaleString()}
+        {/* Screenshots */}
+        {(() => {
+          const imgs = images || (image ? [{ dataUrl: image }] : []);
+          if (!imgs.length) return null;
+          return (
+            <div className="relative">
+              <div className={`grid ${imgs.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+                {imgs.map((img, idx) => (
+                  <div key={idx} className="aspect-video rounded-xl overflow-hidden bg-gray-100">
+                    <img src={img.dataUrl || img} alt={`Screenshot ${idx + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {!readOnly && onEdit && (
+                <button
+                  onClick={() => onEdit(1)}
+                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition"
+                >
+                  <CameraIcon className="w-5 h-5" />
+                </button>
+              )}
+              {timestamp && (
+                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white flex items-center gap-1">
+                  <CalendarIcon className="w-3 h-3" />
+                  {new Date(timestamp).toLocaleString()}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* College Info */}
         {collegeName && (

@@ -91,7 +91,7 @@ exports.createCollege = async (req, res) => {
     }
     
     // Generate unique code
-    const code = await College.generateUniqueCode(name);
+    const code = await College.generateUniqueCode();
     
     const college = await College.create({
       name,
@@ -133,7 +133,7 @@ exports.generateCode = async (req, res) => {
       });
     }
     
-    const code = await College.generateUniqueCode(college.name);
+    const code = await College.generateUniqueCode();
     college.code = code;
     await college.save();
     
@@ -247,7 +247,7 @@ exports.bulkImport = async (req, res) => {
           continue;
         }
         
-        const code = await College.generateUniqueCode(name);
+        const code = await College.generateUniqueCode();
         await College.create({ name: name.trim(), city: city.trim(), code });
         results.created++;
       } catch (err) {

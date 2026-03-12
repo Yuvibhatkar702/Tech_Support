@@ -14,8 +14,6 @@ const collegeSchema = new mongoose.Schema({
   code: {
     type: String,
     unique: true,
-    uppercase: true,
-    minlength: [4, 'Code must be at least 4 characters'],
   },
   email: {
     type: String,
@@ -38,47 +36,20 @@ const collegeSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Generate unique college code
-collegeSchema.statics.generateUniqueCode = async function(collegeName) {
-  // Create base code from college name initials + random string
-  const words = collegeName.split(/\s+/).filter(w => w.length > 1);
-  let prefix = '';
-  
-  // Take first letter of first 2-3 significant words
-  for (let i = 0; i < Math.min(words.length, 3); i++) {
-    prefix += words[i][0].toUpperCase();
-  }
-  
-  // If prefix is less than 2 chars, pad with 'CL'
-  if (prefix.length < 2) {
-    prefix = 'CL' + prefix;
-  }
-  
-  // Generate random alphanumeric suffix
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// Generate unique 10-digit numeric college code
+collegeSchema.statics.generateUniqueCode = async function() {
   let code;
   let exists = true;
   let attempts = 0;
-  
+
   while (exists && attempts < 100) {
-    let suffix = '';
-    const suffixLength = Math.max(4 - prefix.length, 2);
-    for (let i = 0; i < suffixLength; i++) {
-      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    code = prefix + suffix;
-    
-    // Ensure minimum 4 characters
-    while (code.length < 4) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    // Check if code exists
+    // Generate 10-digit number (first digit 1-9, rest 0-9)
+    code = String(Math.floor(1000000000 + Math.random() * 9000000000));
     const existing = await this.findOne({ code });
     exists = !!existing;
     attempts++;
   }
-  
+
   return code;
 };
 

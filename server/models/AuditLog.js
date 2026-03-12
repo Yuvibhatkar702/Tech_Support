@@ -19,6 +19,8 @@ const auditLogSchema = new mongoose.Schema({
       'admin_logout',
       'admin_created',
       'admin_updated',
+      'official_login',
+      'official_logout',
       'geocoding_success',
       'geocoding_failed',
       'image_uploaded',

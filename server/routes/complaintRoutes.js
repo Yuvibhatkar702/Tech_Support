@@ -21,7 +21,7 @@ router.post(
 router.post(
   '/',
   uploadTicketFiles.fields([
-    { name: 'image', maxCount: 1 },
+    { name: 'image', maxCount: 10 },
     { name: 'additionalFiles', maxCount: 5 },
   ]),
   handleUploadError,

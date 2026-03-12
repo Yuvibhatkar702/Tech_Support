@@ -85,7 +85,7 @@ const complaintSchema = new mongoose.Schema({
     raw: mongoose.Schema.Types.Mixed, // Store raw API response for debugging
   },
   
-  // Image Data
+  // Image Data (legacy single image — backward compatible)
   image: {
     originalName: String,
     fileName: String,
@@ -95,6 +95,17 @@ const complaintSchema = new mongoose.Schema({
     compressedSize: Number, // Compressed size in bytes
     capturedAt: Date,
   },
+
+  // Multiple images
+  images: [{
+    originalName: String,
+    fileName: String,
+    filePath: String,
+    mimeType: String,
+    size: Number,
+    compressedSize: Number,
+    capturedAt: Date,
+  }],
   
   // Status Tracking
   status: {
