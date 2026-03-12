@@ -404,6 +404,9 @@ export default function OfficerDashboardPage() {
                     {c.assignedBy?.name && (
                       <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {c.assignedBy.name}</p>
                     )}
+                    {c.reassignedByMe && c.assignedTo?.name && (
+                      <p className="text-sm text-orange-700"><strong>Assigned To:</strong> {c.assignedTo.name}</p>
+                    )}
                     {/* Original description */}
                     {c.description && (
                       <div className="mt-1">
@@ -722,23 +725,6 @@ export default function OfficerDashboardPage() {
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm resize-none"
                 placeholder="Why are you reassigning this ticket? (required)"
               />
-            </div>
-
-            {/* Image upload */}
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Attach Images <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => setReassignFiles(e.target.files)}
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
-              />
-              {reassignFiles && reassignFiles.length > 0 && (
-                <p className="text-xs text-gray-400 mt-1">{reassignFiles.length} file(s) selected</p>
-              )}
             </div>
 
             <div className="flex gap-3 mt-5">

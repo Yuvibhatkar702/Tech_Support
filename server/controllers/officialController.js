@@ -391,13 +391,22 @@ exports.assignOfficer = async (req, res) => {
 exports.getOfficerComplaints = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    const filter = { assignedTo: req.admin._id };
+    const myId = req.admin._id;
+
+    // Show complaints assigned to me OR reassigned by me
+    const filter = {
+      $or: [
+        { assignedTo: myId },
+        { 'assignmentHistory.assignedBy': myId },
+      ],
+    };
     if (status) filter.status = status;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [complaints, total] = await Promise.all([
       Complaint.find(filter)
         .populate('assignedBy', 'name email')
+        .populate('assignedTo', 'name')
         .populate('statusHistory.changedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -409,6 +418,8 @@ exports.getOfficerComplaints = async (req, res) => {
       const obj = c.toObject();
       obj.progress = getProgressPercentage(c.status);
       obj.statusLabel = getStatusLabel(c.status);
+      // Flag if this complaint was reassigned away by the current user
+      obj.reassignedByMe = c.assignedTo && c.assignedTo._id.toString() !== myId.toString();
       if (c.expectedResolveAt) {
         obj.countdown = calculateRemainingTime(c.expectedResolveAt);
       }
