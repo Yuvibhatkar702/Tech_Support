@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOfficialStore, useToastStore } from '../store';
 import { officialApi } from '../services/api';
-import { MicrophoneIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { MicrophoneIcon, XMarkIcon, ArrowPathIcon, DocumentIcon } from '@heroicons/react/24/outline';
 
 // ─── Status badge ───────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -75,6 +75,15 @@ export default function OfficerDashboardPage() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Reassign state
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [reassignComplaint, setReassignComplaint] = useState(null);
+  const [peers, setPeers] = useState([]);
+  const [selectedPeer, setSelectedPeer] = useState('');
+  const [reassignLoading, setReassignLoading] = useState(false);
+  const [reassignRemarks, setReassignRemarks] = useState('');
+  const [reassignFiles, setReassignFiles] = useState(null);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -190,6 +199,50 @@ export default function OfficerDashboardPage() {
   const handleLogout = () => {
     logout();
     navigate('/official-login');
+  };
+
+  // Fetch peers for reassign
+  const openReassignModal = async (complaint) => {
+    setReassignComplaint(complaint);
+    setSelectedPeer('');
+    setReassignRemarks('');
+    setReassignFiles(null);
+    setReassignModalOpen(true);
+    try {
+      const res = await officialApi.getDepartmentOfficers();
+      if (res.success) {
+        // Exclude self from list
+        setPeers(res.data.filter(p => p._id !== official?._id));
+      }
+    } catch {
+      addToast('Failed to load team members', 'error');
+    }
+  };
+
+  const handleReassign = async () => {
+    if (!selectedPeer || !reassignComplaint) return;
+    setReassignLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('officerId', selectedPeer);
+      if (reassignRemarks) formData.append('remarks', reassignRemarks);
+      if (reassignFiles) {
+        Array.from(reassignFiles).forEach(f => formData.append('reassignImage', f));
+      }
+      const res = await officialApi.reassignComplaint(reassignComplaint._id, formData);
+      if (res.success) {
+        addToast('Ticket reassigned successfully', 'success');
+        setReassignModalOpen(false);
+        setReassignComplaint(null);
+        setReassignRemarks('');
+        setReassignFiles(null);
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to reassign', 'error');
+    } finally {
+      setReassignLoading(false);
+    }
   };
 
   // Password change handler
@@ -317,6 +370,16 @@ export default function OfficerDashboardPage() {
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm font-bold text-gray-900">{c.complaintId}</span>
                     <StatusBadge status={c.status} />
+                    {c.priority && (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        c.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                        c.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        c.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {c.priority.charAt(0).toUpperCase() + c.priority.slice(1)}
+                      </span>
+                    )}
                     {isReopened && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                         Reopened {c.reopenCount}x
@@ -348,8 +411,15 @@ export default function OfficerDashboardPage() {
                     <div className="w-24 h-24 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-300 text-xs border">No image</div>
                   )}
                   <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-sm text-gray-700"><strong>Name:</strong> {c.user?.name || c.user?.facultyName || '—'}</p>
+                    <p className="text-sm text-gray-700"><strong>Phone:</strong> {c.user?.phoneNumber || c.user?.facultyNumber || '—'}</p>
                     <p className="text-sm text-gray-700"><strong>Category:</strong> {c.category}</p>
-                    <p className="text-sm text-gray-700"><strong>Phone:</strong> {c.user?.phoneNumber || '—'}</p>
+                    {c.user?.collegeName && (
+                      <p className="text-sm text-gray-700"><strong>College:</strong> {c.user.collegeName}{c.user.collegeCity ? `, ${c.user.collegeCity}` : ''}</p>
+                    )}
+                    {c.websiteName && (
+                      <p className="text-sm text-gray-700"><strong>Application:</strong> {c.websiteName}</p>
+                    )}
                     {c.assignedBy?.name && (
                       <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {c.assignedBy.name}</p>
                     )}
@@ -364,6 +434,31 @@ export default function OfficerDashboardPage() {
                     {c.address?.fullAddress && <p className="text-xs text-gray-400">{c.address.fullAddress}</p>}
                   </div>
                 </div>
+
+                {/* Additional Files */}
+                {c.additionalFiles && c.additionalFiles.length > 0 && (
+                  <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs font-medium text-gray-600 mb-2"><DocumentIcon className="w-4 h-4 inline mr-1" />Additional Documents ({c.additionalFiles.length})</p>
+                    <div className="flex flex-wrap gap-2">
+                      {c.additionalFiles.map((file, idx) => {
+                        const fileUrl = `${API_BASE}/${(file.filePath || '').replace(/\\/g, '/')}`;
+                        return (
+                          <a
+                            key={idx}
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition"
+                          >
+                            <DocumentIcon className="w-3.5 h-3.5" />
+                            {file.originalName || `File ${idx + 1}`}
+                            <span className="text-gray-400">({(file.size / 1024).toFixed(0)} KB)</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Progress bar */}
                 <div className="mb-3">
@@ -393,13 +488,21 @@ export default function OfficerDashboardPage() {
                     </button>
                   )}
                   {['assigned', 'in_progress'].includes(c.status) && (
-                    <button
-                      onClick={() => { setSelectedComplaint(c); setCloseModalOpen(true); }}
-                      disabled={actionLoading === c._id}
-                      className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
-                    >
-                      Close Ticket
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setSelectedComplaint(c); setCloseModalOpen(true); }}
+                        disabled={actionLoading === c._id}
+                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition"
+                      >
+                        Close Ticket
+                      </button>
+                      <button
+                        onClick={() => openReassignModal(c)}
+                        className="px-4 py-2 bg-amber-500 text-white text-sm rounded-lg hover:bg-amber-600 transition flex items-center gap-1.5"
+                      >
+                        <ArrowPathIcon className="w-4 h-4" /> Reassign
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -547,6 +650,97 @@ export default function OfficerDashboardPage() {
                 className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
               >
                 {isChangingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Modal */}
+      {reassignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Reassign Ticket</h3>
+              <button onClick={() => setReassignModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Reassign <strong>{reassignComplaint?.complaintId}</strong> to another team member</p>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Select Team Member</label>
+              {peers.length === 0 ? (
+                <p className="text-sm text-gray-400">No other team members found</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {peers.map((p) => (
+                    <label
+                      key={p._id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                        selectedPeer === p._id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="peer"
+                        value={p._id}
+                        checked={selectedPeer === p._id}
+                        onChange={() => setSelectedPeer(p._id)}
+                        className="flex-shrink-0 accent-indigo-600"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                        <p className="text-xs text-gray-500 capitalize">{p.role} &bull; {p.activeComplaints || 0} active tickets</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description / Reason</label>
+              <textarea
+                value={reassignRemarks}
+                onChange={(e) => setReassignRemarks(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm resize-none"
+                placeholder="Why are you reassigning this ticket? (required)"
+              />
+            </div>
+
+            {/* Image upload */}
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attach Images <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => setReassignFiles(e.target.files)}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+              />
+              {reassignFiles && reassignFiles.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">{reassignFiles.length} file(s) selected</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setReassignModalOpen(false)}
+                className="flex-1 py-2.5 border rounded-xl text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReassign}
+                disabled={!selectedPeer || !reassignRemarks.trim() || reassignLoading}
+                className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50 transition"
+              >
+                {reassignLoading ? 'Reassigning…' : 'Reassign'}
               </button>
             </div>
           </div>

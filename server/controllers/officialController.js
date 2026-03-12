@@ -218,9 +218,9 @@ exports.changeOfficialPassword = async (req, res) => {
 // ─── Get all officers of a department (for dept head) ──────────────
 exports.getDepartmentOfficers = async (req, res) => {
   try {
-    // For Tech Support Portal: support users see all developers
+    // For Tech Support Portal: support/dev users see all developers and support
     const officers = await Admin.find({
-      role: 'developer',
+      role: { $in: ['developer', 'support'] },
       isActive: true,
     }).select('name email phone role departmentCode designation');
 
@@ -327,14 +327,14 @@ exports.assignOfficer = async (req, res) => {
     if (['super_admin', 'admin'].includes(req.admin.role)) {
       officer = await Admin.findOne({
         _id: officerId,
-        role: { $in: ['officer', 'department_head'] },
+        role: { $in: ['officer', 'developer', 'support', 'department_head'] },
         isActive: true,
       });
     } else {
       const deptCode = req.admin.departmentCode || req.admin.department;
       officer = await Admin.findOne({
         _id: officerId,
-        role: 'officer',
+        role: { $in: ['officer', 'developer', 'support'] },
         $or: [{ departmentCode: deptCode }, { department: deptCode }],
         isActive: true,
       });
@@ -548,7 +548,7 @@ exports.resolveComplaint = async (req, res) => {
 exports.reassignComplaint = async (req, res) => {
   try {
     const { id } = req.params;
-    const { officerId, departmentCode } = req.body;
+    const { officerId, departmentCode, remarks } = req.body;
 
     const complaint = await Complaint.findById(id);
     if (!complaint) {
@@ -560,8 +560,21 @@ exports.reassignComplaint = async (req, res) => {
       complaint.department = departmentCode;
     }
 
+    // Process reassign images
+    let reassignImages = [];
+    const uploadedFiles = req.files;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      reassignImages = uploadedFiles.map(file => ({
+        originalName: file.originalname,
+        fileName: file.filename,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        size: file.size,
+      }));
+    }
+
     if (officerId) {
-      const officer = await Admin.findOne({ _id: officerId, role: 'officer', isActive: true });
+      const officer = await Admin.findOne({ _id: officerId, role: { $in: ['officer', 'developer', 'support'] }, isActive: true });
       if (!officer) {
         return res.status(400).json({ success: false, message: 'Officer not found' });
       }
@@ -569,12 +582,29 @@ exports.reassignComplaint = async (req, res) => {
       complaint.assignedBy = req.admin._id;
       complaint.assignedAt = new Date();
       complaint.status = 'assigned';
-      complaint.statusHistory.push({
+
+      const historyRemarks = remarks
+        ? `Reassigned to ${officer.name} by ${req.admin.name}: ${remarks}`
+        : `Reassigned to ${officer.name} by ${req.admin.name}`;
+
+      // Track in assignment history (visible on admin panel)
+      complaint.assignmentHistory.push({
+        assignedTo: officer._id,
+        assignedBy: req.admin._id,
+        assignedAt: new Date(),
+        remarks: historyRemarks,
+      });
+
+      const historyEntry = {
         status: 'assigned',
         changedAt: new Date(),
         changedBy: req.admin._id,
-        remarks: `Reassigned to ${officer.name} by admin`,
-      });
+        remarks: historyRemarks,
+      };
+      if (reassignImages.length > 0) {
+        historyEntry.attachments = reassignImages;
+      }
+      complaint.statusHistory.push(historyEntry);
     }
 
     await complaint.save();

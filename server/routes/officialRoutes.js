@@ -70,10 +70,10 @@ router.get(
   officialController.getAllOfficials
 );
 
-// ─── DEPARTMENT HEAD: Get department officers ───────────────────────
+// ─── DEPARTMENT HEAD / DEV / SUPPORT: Get department officers ───────────
 router.get(
   '/officers',
-  authorize('department_head'),
+  authorize('department_head', 'developer', 'support'),
   officialController.getDepartmentOfficers
 );
 
@@ -106,21 +106,21 @@ router.patch(
 // ─── OFFICER: Get assigned complaints ───────────────────────────────
 router.get(
   '/officer/complaints',
-  authorize('officer'),
+  authorize('officer', 'developer', 'support'),
   officialController.getOfficerComplaints
 );
 
 // ─── OFFICER: Stats ─────────────────────────────────────────────────
 router.get(
   '/officer/stats',
-  authorize('officer'),
+  authorize('officer', 'developer', 'support'),
   officialController.getOfficerStats
 );
 
 // ─── OFFICER: Start work ────────────────────────────────────────────
 router.patch(
   '/complaints/:id/start',
-  authorize('officer'),
+  authorize('officer', 'developer', 'support'),
   [param('id').isMongoId().withMessage('Invalid complaint ID')],
   validate,
   officialController.startWork
@@ -129,7 +129,7 @@ router.patch(
 // ─── OFFICER: Close complaint ─────────────────────────────────────
 router.patch(
   '/complaints/:id/resolve',
-  authorize('officer'),
+  authorize('officer', 'developer', 'support'),
   upload.array('proof', 5),
   handleUploadError,
   [param('id').isMongoId().withMessage('Invalid complaint ID')],
@@ -140,7 +140,9 @@ router.patch(
 // ─── ADMIN: Reassign complaint ──────────────────────────────────────
 router.patch(
   '/complaints/:id/reassign',
-  authorize('super_admin', 'admin'),
+  authorize('super_admin', 'admin', 'developer', 'support'),
+  upload.array('reassignImage', 3),
+  handleUploadError,
   [
     param('id').isMongoId().withMessage('Invalid complaint ID'),
     body('officerId').optional().isMongoId(),

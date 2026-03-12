@@ -661,6 +661,8 @@ function SubmitComplaintContent() {
       formData.append('collegeCity', collegeCity);
       formData.append('websiteName', websiteName);
       formData.append('issueType', issueType);
+      formData.append('name', facultyName);
+      formData.append('phoneNumber', facultyNumber);
       formData.append('facultyName', facultyName);
       formData.append('facultyNumber', facultyNumber);
       formData.append('preferredLanguage', language);
