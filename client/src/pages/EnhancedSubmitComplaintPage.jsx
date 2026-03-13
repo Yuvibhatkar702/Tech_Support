@@ -442,7 +442,7 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
     setLoading(true);
     setCollegeData(null);
     try {
-      const res = await collegeApi.getByCode(collegeCode.trim().toUpperCase());
+      const res = await collegeApi.getPublicByCode(collegeCode.trim().toUpperCase());
       if (res.success && res.data) {
         setCollegeData(res.data);
       } else {

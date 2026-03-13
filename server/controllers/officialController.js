@@ -407,6 +407,7 @@ exports.getOfficerComplaints = async (req, res) => {
       Complaint.find(filter)
         .populate('assignedBy', 'name email')
         .populate('assignedTo', 'name')
+        .populate('assignmentHistory.assignedBy', 'name')
         .populate('statusHistory.changedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)

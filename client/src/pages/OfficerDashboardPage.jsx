@@ -332,18 +332,45 @@ export default function OfficerDashboardPage() {
             complaints.map((c) => {
               // If complaint was reopened and has reopen proof, show that instead of original
               const hasReopenProof = c.reopenCount > 0 && c.reopenProof?.length > 0;
-              const latestReopenProof = hasReopenProof ? c.reopenProof[c.reopenProof.length - 1] : null;
-              
-              const rawPath = latestReopenProof?.filePath || c.image?.filePath || c.images?.[0]?.filePath || '';
-              const imgSrc = rawPath
-                ? `${API_BASE}/${rawPath.replace(/\\/g, '/')}`
-                : null;
+              const imagePaths = [];
+
+              if (hasReopenProof) {
+                c.reopenProof.forEach((p) => {
+                  if (p?.filePath) imagePaths.push(p.filePath);
+                });
+              } else {
+                if (Array.isArray(c.images) && c.images.length > 0) {
+                  c.images.forEach((img) => {
+                    if (img?.filePath) imagePaths.push(img.filePath);
+                  });
+                }
+
+                // Backward compatibility for older complaints stored with single image field
+                if (c.image?.filePath) {
+                  imagePaths.push(c.image.filePath);
+                }
+              }
+
+              const uniqueImagePaths = [...new Set(imagePaths.filter(Boolean))];
+              const imageUrls = uniqueImagePaths.map((path) => `${API_BASE}/${path.replace(/\\/g, '/')}`);
+              const imgSrc = imageUrls[0] || null;
               
               // Show reopen reason if reopened, otherwise original description
               const displayDescription = c.reopenCount > 0 && c.reopenReason 
                 ? c.reopenReason 
                 : c.description;
               const isReopened = c.reopenCount > 0;
+
+              const latestAssignment = Array.isArray(c.assignmentHistory) && c.assignmentHistory.length > 0
+                ? c.assignmentHistory[c.assignmentHistory.length - 1]
+                : null;
+              const latestAssignedStatus = Array.isArray(c.statusHistory)
+                ? c.statusHistory.filter((h) => h.status === 'assigned' && h.changedBy?.name).slice(-1)[0]
+                : null;
+              const assignedByName = c.assignedBy?.name
+                || latestAssignment?.assignedBy?.name
+                || latestAssignedStatus?.changedBy?.name
+                || 'System';
               
               return (
               <div key={c._id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition">
@@ -376,7 +403,7 @@ export default function OfficerDashboardPage() {
                 <div className="flex gap-4 mb-3">
                   {/* Image thumbnail - show reopen proof if available */}
                   {imgSrc ? (
-                    <div className="relative flex-shrink-0">
+                    <div className="relative flex-shrink-0 w-24">
                       <img
                         src={imgSrc}
                         alt="complaint"
@@ -386,6 +413,22 @@ export default function OfficerDashboardPage() {
                       />
                       {hasReopenProof && (
                         <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-xs rounded-full">New</span>
+                      )}
+                      {imageUrls.length > 1 && (
+                        <div className="mt-1.5 grid grid-cols-3 gap-1">
+                          {imageUrls.slice(1, 4).map((url, idx) => (
+                            <img
+                              key={`${c._id}-thumb-${idx}`}
+                              src={url}
+                              alt={`complaint ${idx + 2}`}
+                              className="w-full h-7 rounded object-cover cursor-pointer border hover:opacity-80"
+                              onClick={() => setImagePreview(url)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {imageUrls.length > 4 && (
+                        <p className="mt-1 text-[10px] text-gray-500 text-center">+{imageUrls.length - 4} more</p>
                       )}
                     </div>
                   ) : (
@@ -401,9 +444,7 @@ export default function OfficerDashboardPage() {
                     {c.websiteName && (
                       <p className="text-sm text-gray-700"><strong>Application:</strong> {c.websiteName}</p>
                     )}
-                    {c.assignedBy?.name && (
-                      <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {c.assignedBy.name}</p>
-                    )}
+                    <p className="text-sm text-gray-700"><strong>Assigned By:</strong> {assignedByName}</p>
                     {c.reassignedByMe && c.assignedTo?.name && (
                       <p className="text-sm text-orange-700"><strong>Assigned To:</strong> {c.assignedTo.name}</p>
                     )}
