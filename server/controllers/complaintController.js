@@ -605,11 +605,43 @@ exports.getComplaint = async (req, res) => {
       });
     }
 
+    const complaintObj = complaint.toObject();
+    const withMediaUrl = (file) => {
+      if (!file) return file;
+      const normalizedPath = normalizeUploadPath(file.filePath || file.url || file.fileName || '');
+      if (!normalizedPath) return file;
+      const afterUploads = normalizedPath.split('uploads/')[1] || '';
+      return {
+        ...file,
+        filePath: normalizedPath,
+        url: afterUploads ? `/uploads/${afterUploads}` : normalizedPath,
+      };
+    };
+
+    const normalizedResolution = complaintObj.resolution
+      ? {
+          ...complaintObj.resolution,
+          images: Array.isArray(complaintObj.resolution.images)
+            ? complaintObj.resolution.images.map(withMediaUrl)
+            : complaintObj.resolution.images,
+        }
+      : complaintObj.resolution;
+
     res.json({
       success: true,
       data: {
         complaint: {
-          ...complaint.toObject(),
+          ...complaintObj,
+          image: complaintObj.image ? withMediaUrl(complaintObj.image) : complaintObj.image,
+          images: Array.isArray(complaintObj.images) ? complaintObj.images.map(withMediaUrl) : complaintObj.images,
+          additionalFiles: Array.isArray(complaintObj.additionalFiles)
+            ? complaintObj.additionalFiles.map(withMediaUrl)
+            : complaintObj.additionalFiles,
+          resolutionProof: Array.isArray(complaintObj.resolutionProof)
+            ? complaintObj.resolutionProof.map(withMediaUrl)
+            : complaintObj.resolutionProof,
+          voiceNote: complaintObj.voiceNote ? withMediaUrl(complaintObj.voiceNote) : complaintObj.voiceNote,
+          resolution: normalizedResolution,
           formattedAddress: geocodingService.formatAddressForDisplay(complaint.address),
         },
       },

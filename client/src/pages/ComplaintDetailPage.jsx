@@ -9,6 +9,8 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
 const toAssetUrl = (filePath) => {
   if (!filePath) return null;
   const normalized = String(filePath).replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (normalized.startsWith('/api/uploads/')) return `${API_BASE}${normalized.replace('/api', '')}`;
   const marker = '/uploads/';
   const idx = normalized.lastIndexOf(marker);
   if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
@@ -386,7 +388,7 @@ export default function ComplaintDetailPage() {
               <h2 className="text-base font-semibold text-gray-900 mb-3">Screenshots ({complaint.images.length})</h2>
               <div className="grid grid-cols-2 gap-2">
                 {complaint.images.map((img, i) => {
-                  const imgUrl = img.url || toAssetUrl(img.filePath);
+                  const imgUrl = toAssetUrl(img.url || img.filePath);
                   if (!imgUrl) return null;
                   return (
                     <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
@@ -406,7 +408,7 @@ export default function ComplaintDetailPage() {
             <h2 className="text-base font-semibold text-gray-900 mb-3">Attachments ({complaint.additionalFiles.length})</h2>
             <div className="space-y-2">
               {complaint.additionalFiles.map((file, i) => {
-                const fileUrl = file.url || toAssetUrl(file.filePath);
+                const fileUrl = toAssetUrl(file.url || file.filePath);
                 return (
                   <a key={i} href={fileUrl || '#'} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
@@ -465,7 +467,7 @@ export default function ComplaintDetailPage() {
             {complaint.resolution.images && complaint.resolution.images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                 {complaint.resolution.images.map((img, i) => {
-                  const imgUrl = img.url || toAssetUrl(img.filePath);
+                  const imgUrl = toAssetUrl(img.url || img.filePath);
                   if (!imgUrl) return null;
                   return (
                     <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
@@ -487,7 +489,7 @@ export default function ComplaintDetailPage() {
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {complaint.resolutionProof.map((proof, index) => {
-                const proofUrl = proof.url || toAssetUrl(proof.filePath);
+                const proofUrl = toAssetUrl(proof.url || proof.filePath);
                 if (!proofUrl) return null;
                 return (
                   <a key={index} href={proofUrl} target="_blank" rel="noopener noreferrer"
@@ -525,7 +527,7 @@ export default function ComplaintDetailPage() {
             {complaint.reopenProof && complaint.reopenProof.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                 {complaint.reopenProof.map((proof, i) => {
-                  const proofUrl = proof.url || toAssetUrl(proof.filePath);
+                  const proofUrl = toAssetUrl(proof.url || proof.filePath);
                   if (!proofUrl) return null;
                   return (
                     <a key={i} href={proofUrl} target="_blank" rel="noopener noreferrer"

@@ -31,7 +31,20 @@ import LanguageSelector from '../components/LanguageSelector';
 import StatusBadge from '../components/StatusBadge';
 import QRCodeScanner from '../components/QRCodeScanner';
 
-const IMAGE_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+const toAssetUrl = (filePath) => {
+  if (!filePath) return null;
+  const normalized = String(filePath).replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  const marker = '/uploads/';
+  const idx = normalized.lastIndexOf(marker);
+  if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
+  if (normalized.startsWith('/uploads/')) return `${API_BASE}${normalized}`;
+  if (normalized.startsWith('uploads/')) return `${API_BASE}/${normalized}`;
+  const bareIdx = normalized.lastIndexOf('uploads/');
+  if (bareIdx >= 0) return `${API_BASE}/${normalized.slice(bareIdx)}`;
+  return `${API_BASE}/${normalized.replace(/^\/+/, '')}`;
+};
 
 // Status Timeline Component
 function StatusTimeline({ history, currentStatus }) {
@@ -331,14 +344,16 @@ function ComplaintCard({ complaint }) {
 
         {/* Complaint Image(s) */}
         {(() => {
-          // Collect all available image paths
-          const imgs = [];
-          if (complaint.image?.filePath) imgs.push(complaint.image.filePath);
+          // Collect and normalize all available image URLs
+          const rawPaths = [];
+          if (complaint.image?.filePath) rawPaths.push(complaint.image.filePath);
           if (complaint.images?.length) {
             complaint.images.forEach((img) => {
-              if (img.filePath && !imgs.includes(img.filePath)) imgs.push(img.filePath);
+              if (img.filePath) rawPaths.push(img.filePath);
             });
           }
+
+          const imgs = Array.from(new Set(rawPaths.map((fp) => toAssetUrl(fp)).filter(Boolean)));
           if (imgs.length === 0) return null;
           return (
             <div className="space-y-2">
@@ -347,13 +362,16 @@ function ComplaintCard({ complaint }) {
                 <p className="text-xs text-gray-500 uppercase tracking-wide">{t('photo', 'Photo')}</p>
               </div>
               <div className={`grid gap-2 ${imgs.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {imgs.map((fp, idx) => (
+                {imgs.map((imgSrc, idx) => (
                   <div key={idx} className="rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
                     <img
-                      src={`${IMAGE_BASE}/${fp.replace(/\\/g, '/')}`}
+                      src={imgSrc}
                       alt={`Complaint photo ${idx + 1}`}
                       className="w-full max-h-64 object-contain cursor-pointer hover:opacity-90 transition"
-                      onClick={() => window.open(`${IMAGE_BASE}/${fp.replace(/\\/g, '/')}`, '_blank')}
+                      onClick={() => window.open(imgSrc, '_blank')}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                       loading="lazy"
                     />
                   </div>
@@ -835,15 +853,19 @@ export default function EnhancedTrackComplaintPage() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {complaint.resolutionProof.map((proof, idx) => (
+                      (() => {
+                        const proofUrl = toAssetUrl(proof.filePath || proof.url || proof.fileName);
+                        if (!proofUrl) return null;
+                        return (
                       <a
                         key={idx}
-                        href={`${API_BASE}${proof.url}`}
+                        href={proofUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group relative block rounded-xl overflow-hidden border border-gray-200 hover:border-green-400 transition"
                       >
                         <img
-                          src={`${API_BASE}${proof.url}`}
+                          src={proofUrl}
                           alt={`Proof ${idx + 1}`}
                           className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-200"
                           onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
@@ -855,6 +877,8 @@ export default function EnhancedTrackComplaintPage() {
                           <p className="text-white text-xs truncate">{proof.fileName || `Proof ${idx + 1}`}</p>
                         </div>
                       </a>
+                        );
+                      })()
                     ))}
                   </div>
                   {complaint.resolution?.description && (

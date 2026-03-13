@@ -51,6 +51,8 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
 const toAssetUrl = (filePath) => {
   if (!filePath) return null;
   const normalized = String(filePath).replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (normalized.startsWith('/api/uploads/')) return `${API_BASE}${normalized.replace('/api', '')}`;
   const marker = '/uploads/';
   const idx = normalized.lastIndexOf(marker);
   if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
