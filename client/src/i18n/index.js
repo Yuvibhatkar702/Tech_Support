@@ -35,7 +35,7 @@ const resources = {
       
       // Home Page
       home_title: 'Support Sync',
-      home_subtitle: 'Tagline: Seamless service, managed by engineers.',
+      home_subtitle: 'Seamless service, managed by engineers.',
       home_cta: 'File a Complaint',
       home_track: 'Track Your Complaint',
       home_features_title: 'How It Works',

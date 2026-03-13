@@ -128,15 +128,9 @@ export const complaintApi = {
     return response.data;
   },
 
-  // Send OTP for mobile-number tracking (public)
-  trackSendOTP: async (phoneNumber) => {
-    const response = await api.post('/complaints/track/send-otp', { phoneNumber });
-    return response.data;
-  },
-
-  // Verify OTP and get complaints by mobile number (public)
-  trackVerifyOTP: async (phoneNumber, otp) => {
-    const response = await api.post('/complaints/track/verify-otp', { phoneNumber, otp });
+  // Get complaints by mobile number (public, no OTP)
+  trackByMobile: async (phoneNumber) => {
+    const response = await api.post('/complaints/track/mobile', { phoneNumber });
     return response.data;
   },
 
@@ -325,18 +319,6 @@ export const adminApi = {
 
 // Citizen Portal APIs
 export const citizenApi = {
-  // Request OTP
-  requestOTP: async (phoneNumber) => {
-    const response = await api.post('/citizen/request-otp', { phoneNumber });
-    return response.data;
-  },
-
-  // Verify OTP
-  verifyOTP: async (phoneNumber, otp) => {
-    const response = await api.post('/citizen/verify-otp', { phoneNumber, otp });
-    return response.data;
-  },
-
   // Get profile
   getProfile: async (token) => {
     const response = await api.get('/citizen/profile', {

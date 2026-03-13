@@ -9,9 +9,9 @@ const { validate } = require('../middleware');
  * Public Routes
  */
 
-// Request OTP
+// Login by phone (no OTP)
 router.post(
-  '/request-otp',
+  '/login-phone',
   [
     body('phoneNumber')
       .notEmpty()
@@ -23,24 +23,7 @@ router.post(
       .withMessage('Invalid email'),
   ],
   validate,
-  citizenController.requestOTP
-);
-
-// Verify OTP
-router.post(
-  '/verify-otp',
-  [
-    body('phoneNumber')
-      .notEmpty()
-      .matches(/^\+?[1-9]\d{9,14}$/)
-      .withMessage('Invalid phone number'),
-    body('otp')
-      .notEmpty()
-      .isLength({ min: 6, max: 6 })
-      .withMessage('OTP must be 6 digits'),
-  ],
-  validate,
-  citizenController.verifyOTP
+  citizenController.loginByPhone
 );
 
 /**

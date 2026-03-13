@@ -69,11 +69,11 @@ router.get(
   complaintController.reverseGeocode
 );
 
-// ─── Track by Mobile Number (OTP-protected) ─────────────────────────
+// ─── Track by Mobile Number ─────────────────────────────────────────
 
-// Send OTP for mobile-number tracking
+// Get complaints directly by mobile number (no OTP)
 router.post(
-  '/track/send-otp',
+  '/track/mobile',
   [
     body('phoneNumber')
       .notEmpty()
@@ -81,24 +81,7 @@ router.post(
       .withMessage('Phone number must be exactly 10 digits'),
   ],
   validate,
-  complaintController.trackSendOTP
-);
-
-// Verify OTP and get all complaints for the number
-router.post(
-  '/track/verify-otp',
-  [
-    body('phoneNumber')
-      .notEmpty()
-      .matches(/^[1-9]\d{9}$/)
-      .withMessage('Phone number must be exactly 10 digits'),
-    body('otp')
-      .notEmpty()
-      .isLength({ min: 6, max: 6 })
-      .withMessage('OTP must be 6 digits'),
-  ],
-  validate,
-  complaintController.trackVerifyOTP
+  complaintController.trackByMobile
 );
 
 // Get complaint status (public, with phone verification)

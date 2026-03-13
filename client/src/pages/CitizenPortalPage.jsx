@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -14,12 +14,9 @@ export default function CitizenPortalPage() {
   const [token, setToken] = useState(null);
   
   // Login state
-  const [step, setStep] = useState('phone'); // phone, otp
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(0);
 
   // Dashboard state
   const [complaints, setComplaints] = useState([]);
@@ -64,7 +61,7 @@ export default function CitizenPortalPage() {
         setCitizenData(null);
         setComplaints([]);
         setStats(null);
-        setStep('phone');
+        setPhoneNumber('');
       }
     }, 30_000);
     return () => clearInterval(id);
@@ -75,13 +72,6 @@ export default function CitizenPortalPage() {
       fetchProfile(token);
     }
   }, [token]);
-
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
 
   const fetchProfile = async (authToken) => {
     const t = authToken || token;
@@ -124,63 +114,16 @@ export default function CitizenPortalPage() {
     }
   };
 
-  const handleRequestOTP = async (e) => {
+  const handleLoginByPhone = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/citizen/request-otp`, {
+      const response = await fetch(`${API_BASE}/citizen/login-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setStep('otp');
-        setCountdown(60);
-        // In dev mode, auto-fill OTP and auto-verify
-        if (data.otp) {
-          setOtp(data.otp);
-          // Auto-verify after a short delay
-          setTimeout(async () => {
-            try {
-              const verifyRes = await fetch(`${API_BASE}/citizen/verify-otp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phoneNumber, otp: data.otp }),
-              });
-              const verifyData = await verifyRes.json();
-              if (verifyData.success) {
-                localStorage.setItem('citizenToken', verifyData.data.token);
-                localStorage.setItem('citizenSession', Date.now().toString());
-                setToken(verifyData.data.token);
-                setLoading(false);
-              }
-            } catch (_) { /* fallback to manual entry */ }
-          }, 1000);
-        }
-      } else {
-        setError(data.message || 'Failed to send OTP');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE}/citizen/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, otp }),
       });
       const data = await response.json();
 
@@ -189,7 +132,7 @@ export default function CitizenPortalPage() {
         localStorage.setItem('citizenSession', Date.now().toString());
         setToken(data.data.token);
       } else {
-        setError(data.message || 'Invalid OTP');
+        setError(data.message || 'Failed to login');
       }
     } catch (error) {
       setError('Network error. Please try again.');
@@ -214,9 +157,7 @@ export default function CitizenPortalPage() {
     setIsLoggedIn(false);
     setCitizenData(null);
     setComplaints([]);
-    setStep('phone');
     setPhoneNumber('');
-    setOtp('');
   };
 
   const handleSubmitFeedback = async (complaintId, rating, comment) => {
@@ -264,112 +205,41 @@ export default function CitizenPortalPage() {
               <span className="text-3xl">👤</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Citizen Portal</h1>
-            <p className="text-gray-500 mt-2">
-              {step === 'phone' ? 'Enter your phone number to login' : 'Enter the OTP sent to your phone'}
-            </p>
+            <p className="text-gray-500 mt-2">Enter your phone number to continue</p>
           </div>
 
-          <AnimatePresence mode="wait">
-            {step === 'phone' ? (
-              <motion.form
-                key="phone"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                onSubmit={handleRequestOTP}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    required
-                  />
-                </div>
+          <motion.form
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            onSubmit={handleLoginByPhone}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+91 9876543210"
+                className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                required
+              />
+            </div>
 
-                {error && (
-                  <p className="text-red-500 text-sm">{error}</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading || !phoneNumber}
-                  className="w-full bg-primary-600 text-white py-3 rounded-xl font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Sending OTP...' : 'Get OTP'}
-                </button>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleVerifyOTP}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Enter OTP
-                  </label>
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="Enter 6-digit OTP"
-                    className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
-                    maxLength={6}
-                    required
-                  />
-                </div>
-
-                <p className="text-sm text-gray-500 text-center">
-                  OTP sent to {phoneNumber}
-                </p>
-
-                {error && (
-                  <p className="text-red-500 text-sm text-center">{error}</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading || otp.length !== 6}
-                  className="w-full bg-primary-600 text-white py-3 rounded-xl font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Verifying...' : 'Verify OTP'}
-                </button>
-
-                <div className="flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep('phone');
-                      setOtp('');
-                      setError('');
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    ← Change Number
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={handleRequestOTP}
-                    disabled={countdown > 0}
-                    className="text-primary-600 hover:text-primary-700 disabled:text-gray-400"
-                  >
-                    {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
-                  </button>
-                </div>
-              </motion.form>
+            {error && (
+              <p className="text-red-500 text-sm">{error}</p>
             )}
-          </AnimatePresence>
+
+            <button
+              type="submit"
+              disabled={loading || !phoneNumber}
+              className="w-full bg-primary-600 text-white py-3 rounded-xl font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Logging in...' : 'Continue'}
+            </button>
+          </motion.form>
 
           <div className="mt-6 pt-6 border-t text-center">
             <Link to="/" className="text-primary-600 hover:underline text-sm">

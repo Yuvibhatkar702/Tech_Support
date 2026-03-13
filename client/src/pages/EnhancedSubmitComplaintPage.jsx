@@ -72,6 +72,8 @@ const ISSUE_TYPES = [
 // STEP 1 — Issue Details (merged form)
 // ─────────────────────────────────────────────────────────────────────────────
 function IssueDetailsStep({
+  collegeName,
+  collegeCity,
   websiteName, onWebsiteNameChange,
   selectedCategory, onCategorySelect,
   issueType, onIssueTypeChange,
@@ -180,6 +182,32 @@ function IssueDetailsStep({
         <p className="text-sm text-gray-500">
           {t('issue_details_desc', 'Fill in the details about your support issue')}
         </p>
+      </div>
+
+      {/* College Info (auto-filled from code) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {t('college_name', 'College Name')}
+          </label>
+          <input
+            type="text"
+            value={collegeName || ''}
+            readOnly
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {t('city', 'City')}
+          </label>
+          <input
+            type="text"
+            value={collegeCity || ''}
+            readOnly
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700"
+          />
+        </div>
       </div>
 
       {/* Application Name */}
@@ -433,35 +461,32 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
   const [error, setError] = useState('');
   const [collegeData, setCollegeData] = useState(null);
 
-  const handleLookupCollege = async () => {
+  const handleNext = async () => {
     if (!collegeCode.trim()) {
       setError('Please enter a college code');
       return;
     }
+
     setError('');
     setLoading(true);
     setCollegeData(null);
+
     try {
       const res = await collegeApi.getPublicByCode(collegeCode.trim().toUpperCase());
       if (res.success && res.data) {
         setCollegeData(res.data);
+        onVerified({
+          code: collegeCode.trim().toUpperCase(),
+          name: res.data.name,
+          city: res.data.city,
+        });
       } else {
-        setError(res.message || 'College not found');
+        setError(res.message || 'College not found for this code');
       }
     } catch (err) {
-      setError('Failed to verify college code');
+      setError('College not found for this code');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleNext = () => {
-    if (collegeData) {
-      onVerified({
-        code: collegeCode.trim().toUpperCase(),
-        name: collegeData.name,
-        city: collegeData.city,
-      });
     }
   };
 
@@ -484,30 +509,21 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {t('college_code', 'College Code')}
           </label>
-          <div className="flex gap-2">
-            <input
-              type="tel"
-              value={collegeCode}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setCollegeCode(val);
-                setCollegeData(null);
-                setError('');
-              }}
-              placeholder="e.g. 1234567890"
-              maxLength={10}
-              inputMode="numeric"
-              pattern="[0-9]{10}"
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-            />
-            <button
-              onClick={handleLookupCollege}
-              disabled={loading || !collegeCode.trim()}
-              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition"
-            >
-              {loading ? '...' : t('lookup', 'Lookup')}
-            </button>
-          </div>
+          <input
+            type="tel"
+            value={collegeCode}
+            onChange={(e) => {
+              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+              setCollegeCode(val);
+              setCollegeData(null);
+              setError('');
+            }}
+            placeholder="e.g. 1234567890"
+            maxLength={10}
+            inputMode="numeric"
+            pattern="[0-9]{10}"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
+          />
         </div>
 
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
@@ -528,10 +544,10 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
 
         <button
           onClick={handleNext}
-          disabled={!collegeData}
+          disabled={loading || !collegeCode.trim()}
           className="w-full py-4 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
         >
-          {t('next', 'Next')}
+          {loading ? t('verifying', 'Verifying...') : t('next', 'Next')}
           <ArrowRightIcon className="w-5 h-5" />
         </button>
       </div>
@@ -572,6 +588,13 @@ function SubmitComplaintContent() {
   const [collegeName, setCollegeName] = useState('');
   const [collegeCity, setCollegeCity] = useState('');
   const [collegeVerified, setCollegeVerified] = useState(false);
+
+  const handleCollegeCodeChange = (val) => {
+    setCollegeCode(val);
+    setCollegeVerified(false);
+    setCollegeName('');
+    setCollegeCity('');
+  };
 
   // Pre-fill college code from URL ?college=XXX
   useEffect(() => {
@@ -827,7 +850,7 @@ function SubmitComplaintContent() {
               {currentStep === 0 && (
                 <CollegeVerifyStep
                   collegeCode={collegeCode}
-                  setCollegeCode={setCollegeCode}
+                  setCollegeCode={handleCollegeCodeChange}
                   onVerified={(college) => {
                     setCollegeCode(college.code);
                     setCollegeName(college.name);
@@ -839,6 +862,8 @@ function SubmitComplaintContent() {
               )}
               {currentStep === 1 && (
                 <IssueDetailsStep
+                  collegeName={collegeName}
+                  collegeCity={collegeCity}
                   websiteName={websiteName}
                   onWebsiteNameChange={setWebsiteName}
                   selectedCategory={selectedCategory}

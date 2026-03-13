@@ -387,12 +387,9 @@ export default function EnhancedTrackComplaintPage() {
 
   // Mobile tracking state
   const [mobileNumber, setMobileNumber] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [mobileComplaints, setMobileComplaints] = useState(null);
   const [mobileError, setMobileError] = useState(null);
-  const [resendTimer, setResendTimer] = useState(0);
 
   // Reopen state
   const [showReopenForm, setShowReopenForm] = useState(false);
@@ -574,21 +571,9 @@ export default function EnhancedTrackComplaintPage() {
     }
   };
 
-  // ─── Mobile OTP Tracking Handlers ─────────────────────────────────
+  // ─── Mobile Tracking Handlers (No OTP) ───────────────────────────
 
-  // Resend timer countdown
-  useEffect(() => {
-    if (resendTimer <= 0) return;
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) { clearInterval(interval); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [resendTimer]);
-
-  const handleSendOTP = async (e) => {
+  const handleMobileSearch = async (e) => {
     e?.preventDefault();
     const phone = mobileNumber.trim();
     if (!phone) return;
@@ -597,23 +582,15 @@ export default function EnhancedTrackComplaintPage() {
     setMobileError(null);
 
     try {
-      const result = await complaintApi.trackSendOTP(phone);
+      const result = await complaintApi.trackByMobile(phone);
       if (result.success) {
-        setOtpSent(true);
-        setResendTimer(60); // 60s cooldown
-        addToast(t('otp_sent'), 'success');
-        // Dev mode: auto-fill OTP if returned
-        if (result.otp) {
-          setOtpValue(result.otp);
-        }
+        setMobileComplaints(result.data);
+        addToast(t('your_complaints', 'Your complaints'), 'success');
       }
     } catch (err) {
       const msg = err.response?.data?.message || t('error_generic');
       if (err.response?.status === 404) {
         setMobileError(t('no_complaints_for_number'));
-      } else if (err.response?.status === 429) {
-        setMobileError(msg);
-        setResendTimer(err.response?.data?.retryAfter || 60);
       } else {
         setMobileError(msg);
       }
@@ -622,36 +599,10 @@ export default function EnhancedTrackComplaintPage() {
     }
   };
 
-  const handleVerifyOTP = async (e) => {
-    e?.preventDefault();
-    const phone = mobileNumber.trim();
-    const otp = otpValue.trim();
-    if (!phone || !otp) return;
-
-    setOtpLoading(true);
-    setMobileError(null);
-
-    try {
-      const result = await complaintApi.trackVerifyOTP(phone, otp);
-      if (result.success) {
-        setMobileComplaints(result.data);
-        addToast(t('otp_sent_hint'), 'success');
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message || t('otp_invalid');
-      setMobileError(msg);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
   const resetMobileSearch = () => {
-    setOtpSent(false);
-    setOtpValue('');
     setMobileComplaints(null);
     setMobileError(null);
     setMobileNumber('');
-    setResendTimer(0);
   };
 
   const handleTabChange = (tab) => {
@@ -1252,106 +1203,40 @@ export default function EnhancedTrackComplaintPage() {
                 ))}
               </div>
             ) : (
-              /* Send OTP / Verify OTP Form */
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                {!otpSent ? (
-                  /* Step 1: Enter phone number */
-                  <form onSubmit={handleSendOTP}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('enter_mobile_number')}
-                    </label>
-                    <div className="flex gap-3">
-                      <div className="flex-1 relative flex">
-                        <span className="inline-flex items-center px-4 bg-gray-100 border border-r-0 border-gray-200 rounded-l-xl text-gray-600 font-semibold text-sm select-none">
-                          +91
-                        </span>
-                        <input
-                          type="tel"
-                          value={mobileNumber}
-                          onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                          className="w-full pl-3 pr-4 py-3 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono"
-                          maxLength={10}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={otpLoading || mobileNumber.trim().length !== 10}
-                        className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2"
-                      >
-                        {otpLoading ? (
-                          <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <DevicePhoneMobileIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">{t('send_otp')}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Step 2: Enter OTP */
-                  <form onSubmit={handleVerifyOTP}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-green-800">{t('otp_sent')}</p>
-                        <p className="text-xs text-gray-500">+91 {mobileNumber}</p>
-                      </div>
-                    </div>
-
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('enter_otp')}
-                    </label>
-                    <div className="flex gap-3">
+                <form onSubmit={handleMobileSearch}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('enter_mobile_number')}
+                  </label>
+                  <div className="flex gap-3">
+                    <div className="flex-1 relative flex">
+                      <span className="inline-flex items-center px-4 bg-gray-100 border border-r-0 border-gray-200 rounded-l-xl text-gray-600 font-semibold text-sm select-none">
+                        +91
+                      </span>
                       <input
-                        type="text"
-                        value={otpValue}
-                        onChange={(e) => setOtpValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                        placeholder={t('otp_placeholder')}
-                        className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-center text-lg tracking-widest"
-                        maxLength={6}
-                        autoFocus
+                        type="tel"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                        className="w-full pl-3 pr-4 py-3 border border-gray-200 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono"
+                        maxLength={10}
                       />
-                      <button
-                        type="submit"
-                        disabled={otpLoading || otpValue.trim().length < 6}
-                        className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2"
-                      >
-                        {otpLoading ? (
-                          <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <MagnifyingGlassIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">{t('verify_otp')}</span>
-                          </>
-                        )}
-                      </button>
                     </div>
-
-                    <div className="flex items-center justify-between mt-3">
-                      <button
-                        type="button"
-                        onClick={resetMobileSearch}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        {t('back_to_search')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSendOTP}
-                        disabled={resendTimer > 0 || otpLoading}
-                        className="text-sm text-primary-600 hover:text-primary-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
-                      >
-                        {resendTimer > 0
-                          ? `${t('otp_resend_in')} ${resendTimer}s`
-                          : t('otp_resend')}
-                      </button>
-                    </div>
-                  </form>
-                )}
+                    <button
+                      type="submit"
+                      disabled={otpLoading || mobileNumber.trim().length !== 10}
+                      className="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition flex items-center gap-2"
+                    >
+                      {otpLoading ? (
+                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <MagnifyingGlassIcon className="w-5 h-5" />
+                          <span className="hidden sm:inline">{t('search')}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
 
                 {/* Mobile Error */}
                 {mobileError && (
@@ -1368,7 +1253,7 @@ export default function EnhancedTrackComplaintPage() {
             )}
 
             {/* Empty state for mobile tab */}
-            {!otpSent && !mobileComplaints && !mobileError && (
+            {!mobileComplaints && !mobileError && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

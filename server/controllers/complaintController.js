@@ -15,15 +15,8 @@ const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('..
 
 // ─── In-memory OTP store for tracking by mobile number ──────────────
 // Key: phoneNumber, Value: { otp, expiresAt, attempts }
-const trackingOTPStore = new Map();
 
 // Cleanup expired OTPs every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of trackingOTPStore) {
-    if (now > val.expiresAt) trackingOTPStore.delete(key);
-  }
-}, 10 * 60 * 1000);
 
 /**
  * Classify image endpoint (deprecated - AI model removed)
@@ -1218,10 +1211,10 @@ exports.rateOfficer = async (req, res) => {
 // ─── Tracking by Mobile Number (OTP-protected) ─────────────────────
 
 /**
- * Send OTP for tracking by mobile number
- * POST /complaints/track/send-otp
+ * Get complaints by mobile number (no OTP)
+ * POST /complaints/track/mobile
  */
-exports.trackSendOTP = async (req, res) => {
+exports.trackByMobile = async (req, res) => {
   try {
     const { phoneNumber } = req.body;
 
@@ -1232,117 +1225,18 @@ exports.trackSendOTP = async (req, res) => {
       });
     }
 
-    // Check if any complaints exist for this phone number
-    const complaintCount = await Complaint.countDocuments({ 'user.phoneNumber': phoneNumber });
-    if (complaintCount === 0) {
+    const complaints = await Complaint.find({ 'user.phoneNumber': phoneNumber })
+      .sort({ createdAt: -1 })
+      .select('complaintId status category description createdAt updatedAt location address department')
+      .lean();
+
+    if (complaints.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'No complaints found for this phone number',
       });
     }
 
-    // Rate limiting: 1-minute cooldown
-    const existing = trackingOTPStore.get(phoneNumber);
-    if (existing && existing.lastSentAt) {
-      const timeSince = Date.now() - existing.lastSentAt;
-      if (timeSince < 60000) {
-        return res.status(429).json({
-          success: false,
-          message: 'Please wait before requesting another OTP',
-          retryAfter: Math.ceil((60000 - timeSince) / 1000),
-        });
-      }
-    }
-
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-
-    trackingOTPStore.set(phoneNumber, {
-      otp,
-      expiresAt,
-      attempts: 0,
-      lastSentAt: Date.now(),
-    });
-
-    // In development, return OTP in response
-    const isDev = process.env.NODE_ENV !== 'production';
-
-    // TODO: Send OTP via SMS in production
-    console.log(`📱 Tracking OTP for ${phoneNumber}: ${otp}`);
-
-    res.json({
-      success: true,
-      message: 'OTP sent successfully',
-      complaintCount,
-      ...(isDev && { otp }),
-    });
-  } catch (error) {
-    console.error('Track send OTP error:', error);
-    res.status(500).json({ success: false, message: 'Failed to send OTP' });
-  }
-};
-
-/**
- * Verify OTP and return all complaints for the phone number
- * POST /complaints/track/verify-otp
- */
-exports.trackVerifyOTP = async (req, res) => {
-  try {
-    const { phoneNumber, otp } = req.body;
-
-    if (!phoneNumber || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number and OTP are required',
-      });
-    }
-
-    const stored = trackingOTPStore.get(phoneNumber);
-
-    if (!stored) {
-      return res.status(400).json({
-        success: false,
-        message: 'No OTP requested for this number. Please request a new OTP.',
-      });
-    }
-
-    if (stored.attempts >= 3) {
-      trackingOTPStore.delete(phoneNumber);
-      return res.status(400).json({
-        success: false,
-        message: 'Too many attempts. Please request a new OTP.',
-      });
-    }
-
-    if (Date.now() > stored.expiresAt) {
-      trackingOTPStore.delete(phoneNumber);
-      return res.status(400).json({
-        success: false,
-        message: 'OTP has expired. Please request a new one.',
-      });
-    }
-
-    stored.attempts += 1;
-
-    if (stored.otp !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP',
-        attemptsRemaining: 3 - stored.attempts,
-      });
-    }
-
-    // OTP is valid — clear it
-    trackingOTPStore.delete(phoneNumber);
-
-    // Fetch all complaints for this phone number
-    const complaints = await Complaint.find({ 'user.phoneNumber': phoneNumber })
-      .sort({ createdAt: -1 })
-      .select('complaintId status category description createdAt updatedAt location address department')
-      .lean();
-
-    // Format complaints for response
     const formatted = complaints.map((c) => ({
       complaintId: c.complaintId,
       status: c.status,
@@ -1356,7 +1250,7 @@ exports.trackVerifyOTP = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'OTP verified successfully',
+      message: 'Complaints fetched successfully',
       data: {
         phoneNumber,
         totalComplaints: formatted.length,
@@ -1364,10 +1258,11 @@ exports.trackVerifyOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Track verify OTP error:', error);
-    res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+    console.error('Track by mobile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch complaints' });
   }
 };
+
 
 // Get last complaint for a college (public)
 exports.getLastFacultyForCollege = async (req, res) => {

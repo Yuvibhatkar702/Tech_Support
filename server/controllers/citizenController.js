@@ -1,12 +1,10 @@
 const Citizen = require('../models/Citizen');
 const Complaint = require('../models/Complaint');
-const { sendOTPEmail } = require('../services/emailService');
-const crypto = require('crypto');
 
 /**
- * Request OTP for login/signup
+ * Login with phone number (no OTP)
  */
-exports.requestOTP = async (req, res) => {
+exports.loginByPhone = async (req, res) => {
   try {
     const { phoneNumber, email } = req.body;
 
@@ -17,77 +15,12 @@ exports.requestOTP = async (req, res) => {
       });
     }
 
-    // Find or create citizen
     let citizen = await Citizen.findOne({ phoneNumber });
-    
+
     if (!citizen) {
-      citizen = new Citizen({ phoneNumber, email });
+      citizen = await Citizen.create({ phoneNumber, email });
     } else if (email && !citizen.email) {
       citizen.email = email;
-    }
-
-    // Check rate limiting (max 3 OTPs per 10 minutes)
-    if (citizen.otp?.lastSentAt) {
-      const timeSinceLastOTP = Date.now() - new Date(citizen.otp.lastSentAt);
-      if (timeSinceLastOTP < 60000) { // 1 minute cooldown
-        return res.status(429).json({
-          success: false,
-          message: 'Please wait before requesting another OTP',
-          retryAfter: Math.ceil((60000 - timeSinceLastOTP) / 1000),
-        });
-      }
-    }
-
-    // Generate OTP
-    const otp = citizen.generateOTP();
-    await citizen.save();
-
-    // In development, return OTP in response (remove in production!)
-    const isDev = process.env.NODE_ENV !== 'production';
-
-    // Send OTP via email if available
-    if (citizen.email) {
-      await sendOTPEmail(citizen.email, otp, citizen.name);
-    }
-
-    // TODO: Send OTP via SMS in production
-    console.log(`📱 OTP for ${phoneNumber}: ${otp}`);
-
-    res.json({
-      success: true,
-      message: 'OTP sent successfully',
-      ...(isDev && { otp }), // Only in development
-    });
-  } catch (error) {
-    console.error('Request OTP error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send OTP',
-    });
-  }
-};
-
-/**
- * Verify OTP and login
- */
-exports.verifyOTP = async (req, res) => {
-  try {
-    const { phoneNumber, otp } = req.body;
-
-    if (!phoneNumber || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number and OTP are required',
-      });
-    }
-
-    const citizen = await Citizen.findOne({ phoneNumber });
-    
-    if (!citizen) {
-      return res.status(404).json({
-        success: false,
-        message: 'Phone number not found. Please request OTP first.',
-      });
     }
 
     if (citizen.isBlocked) {
@@ -97,18 +30,6 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
-    // Verify OTP
-    const result = citizen.verifyOTP(otp);
-    
-    if (!result.valid) {
-      await citizen.save(); // Save attempt count
-      return res.status(400).json({
-        success: false,
-        message: result.message,
-      });
-    }
-
-    // Generate session token
     const deviceInfo = req.headers['user-agent'] || 'Unknown';
     const token = citizen.generateSessionToken(deviceInfo);
     await citizen.save();
@@ -128,10 +49,10 @@ exports.verifyOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Verify OTP error:', error);
+    console.error('Login by phone error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to verify OTP',
+      message: 'Failed to login',
     });
   }
 };
