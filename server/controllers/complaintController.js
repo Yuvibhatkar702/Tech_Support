@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const Complaint = require('../models/Complaint');
+const College = require('../models/College');
 const AuditLog = require('../models/AuditLog');
 const { geocodingService, duplicateDetectionService, whatsappService } = require('../services');
 const smsService = require('../services/smsService');
@@ -382,6 +383,19 @@ exports.getComplaintStatus = async (req, res) => {
     const statusLabel = getStatusLabel(complaint.status);
     const timeline = getStatusTimeline();
 
+    // Ensure college details are available in response (fallback by college code lookup)
+    let resolvedCollegeName = complaint.user?.collegeName || '';
+    let resolvedCollegeCity = complaint.user?.collegeCity || '';
+    const resolvedCollegeCode = complaint.user?.collegeCode || '';
+
+    if ((!resolvedCollegeName || !resolvedCollegeCity) && resolvedCollegeCode) {
+      const college = await College.findOne({ code: resolvedCollegeCode.toUpperCase() }).select('name city').lean();
+      if (college) {
+        if (!resolvedCollegeName) resolvedCollegeName = college.name || '';
+        if (!resolvedCollegeCity) resolvedCollegeCity = college.city || '';
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -405,6 +419,16 @@ exports.getComplaintStatus = async (req, res) => {
           assignedAt: complaint.assignedAt || null,
           startedAt: complaint.startedAt || null,
           resolvedAt: complaint.resolvedAt || null,
+          user: {
+            name: complaint.user?.name || '',
+            phoneNumber: complaint.user?.phoneNumber || '',
+            preferredLanguage: complaint.user?.preferredLanguage || 'en',
+            collegeCode: resolvedCollegeCode,
+            collegeName: resolvedCollegeName,
+            collegeCity: resolvedCollegeCity,
+            facultyName: complaint.user?.facultyName || '',
+            facultyNumber: complaint.user?.facultyNumber || '',
+          },
           location: {
             address: geocodingService.formatAddressForDisplay(complaint.address),
             coordinates: complaint.location?.coordinates,
@@ -419,11 +443,12 @@ exports.getComplaintStatus = async (req, res) => {
           })),
           resolution: complaint.status === 'closed' ? complaint.resolution : null,
           resolutionProof: (complaint.resolutionProof || []).map(p => {
-            const normalized = (p.filePath || '').replace(/\\/g, '/');
+            const normalized = normalizeUploadPath(p.filePath || p.fileName || '');
             const afterUploads = normalized.split('uploads/')[1] || p.fileName;
             return {
               fileName: p.fileName,
               url: `/uploads/${afterUploads}`,
+              filePath: normalized,
               uploadedAt: p.uploadedAt,
             };
           }),
@@ -432,13 +457,13 @@ exports.getComplaintStatus = async (req, res) => {
           reopenReason: complaint.reopenReason || null,
           image: complaint.image?.filePath ? {
             fileName: complaint.image.fileName,
-            filePath: complaint.image.filePath,
+            filePath: normalizeUploadPath(complaint.image.filePath),
           } : null,
           images: (complaint.images || [])
             .filter((img) => img.filePath)
             .map((img) => ({
               fileName: img.fileName,
-              filePath: img.filePath,
+              filePath: normalizeUploadPath(img.filePath),
             })),
           countdown,
         },
