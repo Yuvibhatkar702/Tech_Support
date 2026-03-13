@@ -1,5 +1,25 @@
 const mongoose = require('mongoose');
 
+const facultySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Faculty name is required'],
+    trim: true,
+  },
+  number: {
+    type: String,
+    required: [true, 'Faculty number is required'],
+    trim: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+}, {
+  _id: true,
+  timestamps: true,
+});
+
 const collegeSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -31,6 +51,10 @@ const collegeSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true,
+  },
+  faculty: {
+    type: [facultySchema],
+    default: [],
   },
 }, {
   timestamps: true,

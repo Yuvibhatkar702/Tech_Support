@@ -321,7 +321,16 @@ function ManagePanel({ onDepartmentChange }) {
   // College form
   const COLLEGE_FORM_INITIAL = { name: '', city: '' };
   const [collegeForm, setCollegeForm] = useState(COLLEGE_FORM_INITIAL);
+  const [newCollegeFaculty, setNewCollegeFaculty] = useState({ name: '', number: '' });
+  const [collegeFacultyDraft, setCollegeFacultyDraft] = useState([]);
   const [showCollegeForm, setShowCollegeForm] = useState(false);
+
+  // Faculty form
+  const FACULTY_FORM_INITIAL = { name: '', number: '' };
+  const [facultyForm, setFacultyForm] = useState(FACULTY_FORM_INITIAL);
+  const [showFacultyForm, setShowFacultyForm] = useState(false);
+  const [selectedFacultyCollege, setSelectedFacultyCollege] = useState(null);
+  const [editingFacultyId, setEditingFacultyId] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -342,6 +351,14 @@ function ManagePanel({ onDepartmentChange }) {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (!selectedFacultyCollege?._id) return;
+    const latest = colleges.find((c) => c._id === selectedFacultyCollege._id);
+    if (latest) {
+      setSelectedFacultyCollege(latest);
+    }
+  }, [colleges, selectedFacultyCollege?._id]);
 
   const handleCreateDept = async (e) => {
     e.preventDefault();
@@ -407,13 +424,53 @@ function ManagePanel({ onDepartmentChange }) {
   };
 
   // College handlers
+  const handleAddFacultyToDraft = () => {
+    const name = String(newCollegeFaculty.name || '').trim();
+    const number = String(newCollegeFaculty.number || '').replace(/\D/g, '').slice(0, 10);
+
+    if (!name || !/^[0-9]{10}$/.test(number)) {
+      addToast('Enter faculty name and valid 10-digit number', 'error');
+      return;
+    }
+
+    const duplicate = collegeFacultyDraft.some(
+      (f) => f.name.toLowerCase() === name.toLowerCase() && f.number === number
+    );
+    if (duplicate) {
+      addToast('Faculty already added in list', 'error');
+      return;
+    }
+
+    setCollegeFacultyDraft((prev) => [...prev, { name, number }]);
+    setNewCollegeFaculty({ name: '', number: '' });
+  };
+
+  const handleRemoveFacultyFromDraft = (idx) => {
+    setCollegeFacultyDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleCreateCollege = async (e) => {
     e.preventDefault();
     try {
-      const res = await collegeApi.create(collegeForm);
+      const draftName = String(newCollegeFaculty.name || '').trim();
+      const draftNumber = String(newCollegeFaculty.number || '').replace(/\D/g, '').slice(0, 10);
+      if (draftName || draftNumber) {
+        addToast('Click "Add Faculty" to include the typed faculty entry', 'warning');
+        return;
+      }
+
+      const payload = {
+        name: collegeForm.name,
+        city: collegeForm.city,
+        faculty: collegeFacultyDraft,
+      };
+
+      const res = await collegeApi.create(payload);
       if (res.success) {
         addToast(`College created with code: ${res.data.code}`, 'success');
         setCollegeForm(COLLEGE_FORM_INITIAL);
+        setNewCollegeFaculty({ name: '', number: '' });
+        setCollegeFacultyDraft([]);
         setShowCollegeForm(false);
         fetchData();
       }
@@ -444,6 +501,70 @@ function ManagePanel({ onDepartmentChange }) {
       }
     } catch (err) {
       addToast(err.response?.data?.message || 'Failed to generate code', 'error');
+    }
+  };
+
+  const handleOpenFacultyForm = (college) => {
+    setSelectedFacultyCollege(college);
+    setFacultyForm(FACULTY_FORM_INITIAL);
+    setEditingFacultyId('');
+    setShowFacultyForm(true);
+  };
+
+  const handleEditFaculty = (faculty) => {
+    setEditingFacultyId(String(faculty._id));
+    setFacultyForm({
+      name: faculty.name || '',
+      number: String(faculty.number || '').replace(/\D/g, '').slice(0, 10),
+    });
+  };
+
+  const handleRemoveFaculty = async (faculty) => {
+    if (!selectedFacultyCollege?._id || !faculty?._id) return;
+    if (!window.confirm(`Remove faculty "${faculty.name}"?`)) return;
+
+    try {
+      const res = await collegeApi.removeFaculty(selectedFacultyCollege._id, faculty._id);
+      if (res.success) {
+        addToast('Faculty removed successfully', 'success');
+        if (editingFacultyId && String(faculty._id) === editingFacultyId) {
+          setEditingFacultyId('');
+          setFacultyForm(FACULTY_FORM_INITIAL);
+        }
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to remove faculty', 'error');
+    }
+  };
+
+  const handleAddFaculty = async (e) => {
+    e.preventDefault();
+    if (!selectedFacultyCollege?._id) return;
+
+    const cleanedNumber = String(facultyForm.number || '').replace(/\D/g, '').slice(0, 10);
+    if (!facultyForm.name.trim() || !/^[0-9]{10}$/.test(cleanedNumber)) {
+      addToast('Please enter faculty name and valid 10-digit number', 'error');
+      return;
+    }
+
+    try {
+      const payload = {
+        name: facultyForm.name.trim(),
+        number: cleanedNumber,
+      };
+      const res = editingFacultyId
+        ? await collegeApi.updateFaculty(selectedFacultyCollege._id, editingFacultyId, payload)
+        : await collegeApi.addFaculty(selectedFacultyCollege._id, payload);
+
+      if (res.success) {
+        addToast(editingFacultyId ? 'Faculty updated successfully' : 'Faculty added successfully', 'success');
+        setEditingFacultyId('');
+        setFacultyForm(FACULTY_FORM_INITIAL);
+        fetchData();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to save faculty', 'error');
     }
   };
 
@@ -478,7 +599,14 @@ function ManagePanel({ onDepartmentChange }) {
         <div className="bg-white rounded-2xl shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Colleges ({colleges.length})</h2>
-            <button onClick={() => setShowCollegeForm(!showCollegeForm)} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">
+            <button onClick={() => {
+              if (showCollegeForm) {
+                setCollegeForm(COLLEGE_FORM_INITIAL);
+                setNewCollegeFaculty({ name: '', number: '' });
+                setCollegeFacultyDraft([]);
+              }
+              setShowCollegeForm(!showCollegeForm);
+            }} className="px-4 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">
               {showCollegeForm ? 'Cancel' : '+ Add College'}
             </button>
           </div>
@@ -507,7 +635,56 @@ function ManagePanel({ onDepartmentChange }) {
                     className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Faculty Name (Optional)</label>
+                  <input
+                    value={newCollegeFaculty.name}
+                    onChange={e => setNewCollegeFaculty({ ...newCollegeFaculty, name: e.target.value })}
+                    placeholder="e.g. John Smith"
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Faculty Number (Optional)</label>
+                  <input
+                    type="tel"
+                    value={newCollegeFaculty.number}
+                    onChange={e => setNewCollegeFaculty({ ...newCollegeFaculty, number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleAddFacultyToDraft}
+                    className="px-3 py-2 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    + Add Faculty
+                  </button>
+                </div>
               </div>
+
+              {collegeFacultyDraft.length > 0 && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                  <p className="text-xs font-semibold text-indigo-900 mb-2">Faculty to be added ({collegeFacultyDraft.length})</p>
+                  <div className="space-y-2">
+                    {collegeFacultyDraft.map((f, idx) => (
+                      <div key={`${f.name}-${f.number}-${idx}`} className="flex items-center justify-between gap-2 bg-white border border-indigo-100 rounded px-2 py-1.5">
+                        <p className="text-xs text-gray-700">{f.name} - {f.number}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFacultyFromDraft(idx)}
+                          className="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded hover:bg-red-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-700">A unique college code will be automatically generated upon creation.</p>
               </div>
@@ -528,6 +705,109 @@ function ManagePanel({ onDepartmentChange }) {
             />
           </div>
 
+          {showFacultyForm && selectedFacultyCollege && (
+            <form onSubmit={handleAddFaculty} className="mb-6 p-5 bg-indigo-50 rounded-xl border border-indigo-200 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-indigo-900">Manage Faculty</h3>
+                  <p className="text-xs text-indigo-700">
+                    {selectedFacultyCollege.name} ({selectedFacultyCollege.code || 'No Code'})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFacultyForm(false);
+                    setSelectedFacultyCollege(null);
+                    setEditingFacultyId('');
+                    setFacultyForm(FACULTY_FORM_INITIAL);
+                  }}
+                  className="text-xs px-2 py-1 bg-white border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="rounded-lg border border-indigo-200 bg-white p-3">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Existing Faculty</p>
+                {(selectedFacultyCollege.faculty || []).filter((f) => f.isActive !== false).length === 0 ? (
+                  <p className="text-xs text-gray-500">No faculty added yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                    {(selectedFacultyCollege.faculty || [])
+                      .filter((f) => f.isActive !== false)
+                      .map((f) => (
+                        <div key={f._id} className="flex items-center justify-between gap-2 border border-gray-200 rounded px-2 py-1.5">
+                          <p className="text-xs text-gray-700">{f.name} - {f.number}</p>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEditFaculty(f)}
+                              className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded hover:bg-amber-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFaculty(f)}
+                              className="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded hover:bg-red-100"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Faculty Name <span className="text-red-500">*</span></label>
+                  <input
+                    value={facultyForm.name}
+                    onChange={(e) => setFacultyForm({ ...facultyForm, name: e.target.value })}
+                    placeholder="e.g. John Smith"
+                    required
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Faculty Number <span className="text-red-500">*</span></label>
+                  <input
+                    type="tel"
+                    value={facultyForm.number}
+                    onChange={(e) => setFacultyForm({ ...facultyForm, number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    required
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold">
+                  {editingFacultyId ? 'Update Faculty' : 'Add Faculty'}
+                </button>
+                {editingFacultyId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFacultyId('');
+                      setFacultyForm(FACULTY_FORM_INITIAL);
+                    }}
+                    className="px-3 py-2.5 text-xs bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-100"
+                  >
+                    Clear Edit
+                  </button>
+                )}
+              </div>
+              <button type="button" onClick={fetchData} className="w-full py-2 text-xs bg-white border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition">
+                Refresh Faculty List
+              </button>
+            </form>
+          )}
+
           {/* College List */}
           {loading ? <p className="text-gray-400 text-center py-8">Loading…</p> : (
             <div className="overflow-x-auto">
@@ -538,6 +818,7 @@ function ManagePanel({ onDepartmentChange }) {
                     <th className="px-3 py-2 text-left font-semibold">Code</th>
                     <th className="px-3 py-2 text-left font-semibold">College Name</th>
                     <th className="px-3 py-2 text-left font-semibold">City</th>
+                    <th className="px-3 py-2 text-center font-semibold">Faculty</th>
                     <th className="px-3 py-2 text-center font-semibold">Status</th>
                     <th className="px-3 py-2 text-right font-semibold">Actions</th>
                   </tr>
@@ -561,25 +842,40 @@ function ManagePanel({ onDepartmentChange }) {
                       <td className="px-3 py-2 font-medium text-gray-900">{college.name}</td>
                       <td className="px-3 py-2 text-gray-600">{college.city}</td>
                       <td className="px-3 py-2 text-center">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                          {(college.faculty || []).filter((f) => f.isActive !== false).length}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${college.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {college.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {college.isActive && (
-                          <button 
-                            onClick={() => handleDeleteCollege(college)}
-                            className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
-                          >
-                            Deactivate
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {college.isActive && (
+                            <button
+                              onClick={() => handleOpenFacultyForm(college)}
+                              className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition"
+                            >
+                              Manage Faculty
+                            </button>
+                          )}
+                          {college.isActive && (
+                            <button 
+                              onClick={() => handleDeleteCollege(college)}
+                              className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                            >
+                              Deactivate
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {filteredColleges.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-gray-400">
+                      <td colSpan={7} className="px-3 py-8 text-center text-gray-400">
                         {collegeSearch ? 'No colleges match your search' : 'No colleges added yet'}
                       </td>
                     </tr>

@@ -581,6 +581,30 @@ export const collegeApi = {
     return response.data;
   },
 
+  // Public: Get active faculty list by college code
+  getPublicFacultyByCode: async (code) => {
+    const response = await api.get(`/colleges/public/${code}/faculty`);
+    return response.data;
+  },
+
+  // Admin: Add faculty for a college
+  addFaculty: async (id, data) => {
+    const response = await api.post(`/colleges/${id}/faculty`, data);
+    return response.data;
+  },
+
+  // Admin: Update faculty for a college
+  updateFaculty: async (id, facultyId, data) => {
+    const response = await api.put(`/colleges/${id}/faculty/${facultyId}`, data);
+    return response.data;
+  },
+
+  // Admin: Remove faculty for a college
+  removeFaculty: async (id, facultyId) => {
+    const response = await api.delete(`/colleges/${id}/faculty/${facultyId}`);
+    return response.data;
+  },
+
   // Get last faculty info for a college
   getLastFacultyForCollege: async (collegeCode) => {
     try {

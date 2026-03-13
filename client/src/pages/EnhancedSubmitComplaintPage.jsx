@@ -74,6 +74,9 @@ const ISSUE_TYPES = [
 function IssueDetailsStep({
   collegeName,
   collegeCity,
+  collegeFaculty,
+  selectedFacultyId,
+  onFacultySelect,
   websiteName, onWebsiteNameChange,
   selectedCategory, onCategorySelect,
   issueType, onIssueTypeChange,
@@ -231,14 +234,33 @@ function IssueDetailsStep({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {t('faculty_name', 'Faculty Name')} <span className="text-red-500">*</span>
         </label>
-        <input
-          type="text"
-          value={facultyName}
-          onChange={e => onFacultyNameChange(e.target.value)}
-          onBlur={() => touch('facultyName')}
-          placeholder={t('faculty_name_placeholder', 'e.g. John Smith')}
-          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('facultyName') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
-        />
+        {Array.isArray(collegeFaculty) && collegeFaculty.length > 0 ? (
+          <select
+            value={selectedFacultyId}
+            onChange={e => onFacultySelect(e.target.value)}
+            onBlur={() => touch('facultyName')}
+            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white ${fieldError('facultyName') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
+          >
+            <option value="">{t('select_faculty', '-- Select Faculty --')}</option>
+            {collegeFaculty.map(f => (
+              <option key={f._id || `${f.name}-${f.number}`} value={f._id || `${f.name}-${f.number}`}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={facultyName}
+            onChange={e => onFacultyNameChange(e.target.value)}
+            onBlur={() => touch('facultyName')}
+            placeholder={t('faculty_name_placeholder', 'e.g. John Smith')}
+            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('facultyName') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
+          />
+        )}
+        {Array.isArray(collegeFaculty) && collegeFaculty.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1">Select your name from your college faculty list</p>
+        )}
         {fieldError('facultyName') && <p className="text-xs text-red-500 mt-1">{errors.facultyName}</p>}
       </div>
 
@@ -254,6 +276,7 @@ function IssueDetailsStep({
           onBlur={() => touch('facultyNumber')}
           placeholder={t('faculty_number_placeholder', 'e.g. 9876543210')}
           maxLength={10}
+          readOnly={Array.isArray(collegeFaculty) && collegeFaculty.length > 0}
           className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${fieldError('facultyNumber') ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
         />
         {fieldError('facultyNumber') && <p className="text-xs text-red-500 mt-1">{errors.facultyNumber}</p>}
@@ -474,11 +497,25 @@ function CollegeVerifyStep({ collegeCode, setCollegeCode, onVerified }) {
     try {
       const res = await collegeApi.getPublicByCode(collegeCode.trim().toUpperCase());
       if (res.success && res.data) {
+        let faculty = Array.isArray(res.data.faculty)
+          ? res.data.faculty.filter((f) => f && f.isActive !== false)
+          : [];
+
+        if (faculty.length === 0) {
+          try {
+            const facultyRes = await collegeApi.getPublicFacultyByCode(collegeCode.trim().toUpperCase());
+            faculty = Array.isArray(facultyRes?.data?.faculty) ? facultyRes.data.faculty : [];
+          } catch (facultyErr) {
+            faculty = [];
+          }
+        }
+
         setCollegeData(res.data);
         onVerified({
           code: collegeCode.trim().toUpperCase(),
           name: res.data.name,
           city: res.data.city,
+          faculty,
         });
       } else {
         setError(res.message || 'College not found for this code');
@@ -587,6 +624,8 @@ function SubmitComplaintContent() {
   const [collegeCode, setCollegeCode] = useState('');
   const [collegeName, setCollegeName] = useState('');
   const [collegeCity, setCollegeCity] = useState('');
+  const [collegeFaculty, setCollegeFaculty] = useState([]);
+  const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [collegeVerified, setCollegeVerified] = useState(false);
 
   const handleCollegeCodeChange = (val) => {
@@ -594,6 +633,10 @@ function SubmitComplaintContent() {
     setCollegeVerified(false);
     setCollegeName('');
     setCollegeCity('');
+    setCollegeFaculty([]);
+    setSelectedFacultyId('');
+    setFacultyName('');
+    setFacultyNumber('');
   };
 
   // Pre-fill college code from URL ?college=XXX
@@ -671,20 +714,20 @@ function SubmitComplaintContent() {
     if (canProceed()) setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
   };
 
-  // Auto-fill faculty info only for the current college, clear when college changes
-  useEffect(() => {
-    setFacultyName('');
-    setFacultyNumber('');
-    if (collegeVerified && collegeCode) {
-      (async () => {
-        const res = await collegeApi.getLastFacultyForCollege(collegeCode);
-        if (res.success && res.data && res.data.facultyName && res.data.facultyNumber) {
-          setFacultyName(res.data.facultyName);
-          setFacultyNumber(res.data.facultyNumber);
-        }
-      })();
+  const handleFacultySelect = (facultyId) => {
+    setSelectedFacultyId(facultyId);
+    const selected = (collegeFaculty || []).find(
+      (f) => (f._id || `${f.name}-${f.number}`) === facultyId
+    );
+
+    if (selected) {
+      setFacultyName(selected.name || '');
+      setFacultyNumber(String(selected.number || '').replace(/\D/g, '').slice(0, 10));
+    } else {
+      setFacultyName('');
+      setFacultyNumber('');
     }
-  }, [collegeVerified, collegeCode]);
+  };
 
   const goBack = () => {
     setCurrentStep(prev => Math.max(prev - 1, 0));
@@ -855,6 +898,10 @@ function SubmitComplaintContent() {
                     setCollegeCode(college.code);
                     setCollegeName(college.name);
                     setCollegeCity(college.city);
+                    setCollegeFaculty(Array.isArray(college.faculty) ? college.faculty : []);
+                    setSelectedFacultyId('');
+                    setFacultyName('');
+                    setFacultyNumber('');
                     setCollegeVerified(true);
                     setCurrentStep(1);
                   }}
@@ -864,6 +911,9 @@ function SubmitComplaintContent() {
                 <IssueDetailsStep
                   collegeName={collegeName}
                   collegeCity={collegeCity}
+                  collegeFaculty={collegeFaculty}
+                  selectedFacultyId={selectedFacultyId}
+                  onFacultySelect={handleFacultySelect}
                   websiteName={websiteName}
                   onWebsiteNameChange={setWebsiteName}
                   selectedCategory={selectedCategory}

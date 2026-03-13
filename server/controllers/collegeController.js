@@ -1,9 +1,23 @@
 const { College } = require('../models');
 
+const normalizePhone = (value = '') => String(value).replace(/\D/g, '').slice(0, 10);
+
+const sanitizeFacultyList = (faculty = []) => {
+  if (!Array.isArray(faculty)) return [];
+  return faculty
+    .map((f) => ({
+      name: String(f?.name || '').trim(),
+      number: normalizePhone(f?.number || f?.phoneNumber || ''),
+      isActive: f?.isActive !== false,
+    }))
+    .filter((f) => f.name && /^[0-9]{10}$/.test(f.number));
+};
+
 // Get all colleges
 exports.getAllColleges = async (req, res) => {
   try {
     const { search, city, isActive, page = 1, limit = 500 } = req.query;
+    const isPublicRoute = req.path.startsWith('/public');
     
     const query = {};
     
@@ -24,12 +38,17 @@ exports.getAllColleges = async (req, res) => {
     }
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const collegeQuery = College.find(query)
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    if (isPublicRoute) {
+      collegeQuery.select('-faculty');
+    }
     
     const [colleges, total] = await Promise.all([
-      College.find(query)
-        .sort({ name: 1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+      collegeQuery,
       College.countDocuments(query),
     ]);
     
@@ -53,8 +72,14 @@ exports.getAllColleges = async (req, res) => {
 exports.getCollegeByCode = async (req, res) => {
   try {
     const { code } = req.params;
+    const isPublicRoute = req.path.startsWith('/public/');
     
-    const college = await College.findOne({ code: code.toUpperCase() });
+    const collegeQuery = College.findOne({ code: code.toUpperCase() });
+    if (isPublicRoute) {
+      collegeQuery.select('-faculty');
+    }
+
+    const college = await collegeQuery;
     
     if (!college) {
       return res.status(404).json({ success: false, message: 'College not found' });
@@ -70,7 +95,7 @@ exports.getCollegeByCode = async (req, res) => {
 // Create new college
 exports.createCollege = async (req, res) => {
   try {
-    const { name, city, email, phone, address, isActive = true } = req.body;
+    const { name, city, email, phone, address, isActive = true, faculty = [] } = req.body;
     
     if (!name || !city) {
       return res.status(400).json({ success: false, message: 'Name and city are required' });
@@ -92,6 +117,8 @@ exports.createCollege = async (req, res) => {
     
     // Generate unique code
     const code = await College.generateUniqueCode();
+
+    const sanitizedFaculty = sanitizeFacultyList(faculty);
     
     const college = await College.create({
       name,
@@ -101,6 +128,7 @@ exports.createCollege = async (req, res) => {
       phone,
       address,
       isActive,
+      faculty: sanitizedFaculty,
     });
     
     res.status(201).json({ 
@@ -111,6 +139,180 @@ exports.createCollege = async (req, res) => {
   } catch (error) {
     console.error('Error creating college:', error);
     res.status(500).json({ success: false, message: 'Failed to create college' });
+  }
+};
+
+// Add faculty for a college
+exports.addFacultyToCollege = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, number } = req.body;
+
+    const cleanedName = String(name || '').trim();
+    const cleanedNumber = normalizePhone(number || '');
+
+    if (!cleanedName || !/^[0-9]{10}$/.test(cleanedNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faculty name and valid 10-digit number are required',
+      });
+    }
+
+    const college = await College.findById(id);
+    if (!college) {
+      return res.status(404).json({ success: false, message: 'College not found' });
+    }
+
+    const duplicate = (college.faculty || []).find(
+      (f) => f.isActive !== false &&
+        f.name?.toLowerCase() === cleanedName.toLowerCase() &&
+        normalizePhone(f.number) === cleanedNumber
+    );
+
+    if (duplicate) {
+      return res.status(400).json({ success: false, message: 'Faculty already exists for this college' });
+    }
+
+    college.faculty.push({
+      name: cleanedName,
+      number: cleanedNumber,
+      isActive: true,
+    });
+
+    await college.save();
+
+    const activeFaculty = (college.faculty || []).filter((f) => f.isActive !== false);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Faculty added successfully',
+      data: {
+        collegeId: college._id,
+        faculty: activeFaculty,
+      },
+    });
+  } catch (error) {
+    console.error('Error adding faculty:', error);
+    return res.status(500).json({ success: false, message: 'Failed to add faculty' });
+  }
+};
+
+// Update faculty for a college
+exports.updateCollegeFaculty = async (req, res) => {
+  try {
+    const { id, facultyId } = req.params;
+    const { name, number } = req.body;
+
+    const cleanedName = String(name || '').trim();
+    const cleanedNumber = normalizePhone(number || '');
+
+    if (!cleanedName || !/^[0-9]{10}$/.test(cleanedNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faculty name and valid 10-digit number are required',
+      });
+    }
+
+    const college = await College.findById(id);
+    if (!college) {
+      return res.status(404).json({ success: false, message: 'College not found' });
+    }
+
+    const facultyRecord = college.faculty.id(facultyId);
+    if (!facultyRecord || facultyRecord.isActive === false) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
+    }
+
+    const duplicate = (college.faculty || []).find(
+      (f) =>
+        String(f._id) !== String(facultyId) &&
+        f.isActive !== false &&
+        f.name?.toLowerCase() === cleanedName.toLowerCase() &&
+        normalizePhone(f.number) === cleanedNumber
+    );
+
+    if (duplicate) {
+      return res.status(400).json({ success: false, message: 'Faculty already exists for this college' });
+    }
+
+    facultyRecord.name = cleanedName;
+    facultyRecord.number = cleanedNumber;
+
+    await college.save();
+
+    const activeFaculty = (college.faculty || []).filter((f) => f.isActive !== false);
+    return res.json({
+      success: true,
+      message: 'Faculty updated successfully',
+      data: {
+        collegeId: college._id,
+        faculty: activeFaculty,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating faculty:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update faculty' });
+  }
+};
+
+// Remove (deactivate) faculty for a college
+exports.removeCollegeFaculty = async (req, res) => {
+  try {
+    const { id, facultyId } = req.params;
+
+    const college = await College.findById(id);
+    if (!college) {
+      return res.status(404).json({ success: false, message: 'College not found' });
+    }
+
+    const facultyRecord = college.faculty.id(facultyId);
+    if (!facultyRecord || facultyRecord.isActive === false) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
+    }
+
+    facultyRecord.isActive = false;
+    await college.save();
+
+    const activeFaculty = (college.faculty || []).filter((f) => f.isActive !== false);
+    return res.json({
+      success: true,
+      message: 'Faculty removed successfully',
+      data: {
+        collegeId: college._id,
+        faculty: activeFaculty,
+      },
+    });
+  } catch (error) {
+    console.error('Error removing faculty:', error);
+    return res.status(500).json({ success: false, message: 'Failed to remove faculty' });
+  }
+};
+
+// Get active faculty list by college code (public)
+exports.getCollegeFacultyByCode = async (req, res) => {
+  try {
+    const { code } = req.params;
+    const college = await College.findOne({ code: String(code || '').toUpperCase(), isActive: true });
+
+    if (!college) {
+      return res.status(404).json({ success: false, message: 'College not found' });
+    }
+
+    const faculty = (college.faculty || [])
+      .filter((f) => f.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return res.json({
+      success: true,
+      data: {
+        collegeCode: college.code,
+        collegeName: college.name,
+        faculty,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching college faculty:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch faculty list' });
   }
 };
 
