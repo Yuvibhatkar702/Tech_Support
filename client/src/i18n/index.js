@@ -7,7 +7,7 @@ const resources = {
   en: {
     translation: {
       // Common
-      app_name: 'Grievance Portal',
+      app_name: 'ERP Direct',
       loading: 'Loading...',
       submit: 'Submit',
       cancel: 'Cancel',
@@ -34,8 +34,8 @@ const resources = {
       nav_logout: 'Logout',
       
       // Home Page
-      home_title: 'Report Public Grievances',
-      home_subtitle: 'Help improve your community by reporting issues that need attention',
+      home_title: 'Support Sync',
+      home_subtitle: 'Tagline: Seamless service, managed by engineers.',
       home_cta: 'File a Complaint',
       home_track: 'Track Your Complaint',
       home_features_title: 'How It Works',
