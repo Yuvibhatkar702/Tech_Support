@@ -50,6 +50,18 @@ function StatCard({ label, value, icon, color }) {
 }
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+const toAssetUrl = (filePath) => {
+  if (!filePath) return null;
+  const normalized = String(filePath).replace(/\\/g, '/');
+  const marker = '/uploads/';
+  const idx = normalized.lastIndexOf(marker);
+  if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
+  if (normalized.startsWith('/uploads/')) return `${API_BASE}${normalized}`;
+  if (normalized.startsWith('uploads/')) return `${API_BASE}/${normalized}`;
+  const bareIdx = normalized.lastIndexOf('uploads/');
+  if (bareIdx >= 0) return `${API_BASE}/${normalized.slice(bareIdx)}`;
+  return `${API_BASE}/${normalized.replace(/^\/+/, '')}`;
+};
 
 export default function OfficerDashboardPage() {
   const navigate = useNavigate();
@@ -352,7 +364,7 @@ export default function OfficerDashboardPage() {
               }
 
               const uniqueImagePaths = [...new Set(imagePaths.filter(Boolean))];
-              const imageUrls = uniqueImagePaths.map((path) => `${API_BASE}/${path.replace(/\\/g, '/')}`);
+              const imageUrls = uniqueImagePaths.map((path) => toAssetUrl(path)).filter(Boolean);
               const imgSrc = imageUrls[0] || null;
               
               // Show reopen reason if reopened, otherwise original description
@@ -479,7 +491,7 @@ export default function OfficerDashboardPage() {
                     <p className="text-xs font-medium text-gray-600 mb-2"><DocumentIcon className="w-4 h-4 inline mr-1" />Additional Documents ({c.additionalFiles.length})</p>
                     <div className="flex flex-wrap gap-2">
                       {c.additionalFiles.map((file, idx) => {
-                        const fileUrl = `${API_BASE}/${(file.filePath || '').replace(/\\/g, '/')}`;
+                        const fileUrl = toAssetUrl(file.filePath);
                         return (
                           <a
                             key={idx}

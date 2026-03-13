@@ -285,6 +285,7 @@ export default function AdminDashboardPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">College</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -296,13 +297,13 @@ export default function AdminDashboardPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {isLoading ? (
                       <tr>
-                        <td colSpan="8" className="px-4 py-8 text-center">
+                        <td colSpan="9" className="px-4 py-8 text-center">
                           <div className="spinner mx-auto" />
                         </td>
                       </tr>
                     ) : complaints.length === 0 ? (
                       <tr>
-                        <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                           No complaints found
                         </td>
                       </tr>
@@ -314,6 +315,9 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {complaint.category}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
+                            {complaint.user?.collegeName || '—'}{complaint.user?.collegeCity ? `, ${complaint.user.collegeCity}` : ''}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
                             {complaint.description}
@@ -418,6 +422,11 @@ export default function AdminDashboardPage() {
                           <p className="font-medium text-sm mb-1">
                             {complaint.category}
                           </p>
+                          {(complaint.user?.collegeName || complaint.user?.collegeCity) && (
+                            <p className="text-xs text-gray-600 mb-1">
+                              {complaint.user?.collegeName || '—'}{complaint.user?.collegeCity ? `, ${complaint.user.collegeCity}` : ''}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-600 mb-2 line-clamp-2">
                             {complaint.description}
                           </p>

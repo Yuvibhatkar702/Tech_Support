@@ -370,6 +370,7 @@ export default function AdminDashboardV2() {
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">College</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
@@ -380,7 +381,7 @@ export default function AdminDashboardV2() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {complaints.length === 0 ? (
-                      <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-500">No complaints found</td></tr>
+                      <tr><td colSpan="10" className="px-4 py-8 text-center text-gray-500">No complaints found</td></tr>
                     ) : complaints.map((complaint) => (
                       <motion.tr key={complaint._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
@@ -388,6 +389,9 @@ export default function AdminDashboardV2() {
                         </td>
                         <td className="px-4 py-3 text-sm font-mono text-primary-600">{complaint.complaintId}</td>
                         <td className="px-4 py-3 text-sm">{t(`categories.${complaint.category}`)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">
+                          {complaint.user?.collegeName || '—'}{complaint.user?.collegeCity ? `, ${complaint.user.collegeCity}` : ''}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{complaint.location?.address || 'N/A'}</td>
                         <td className="px-4 py-3"><StatusBadge status={complaint.status} /></td>
                         <td className="px-4 py-3 text-sm">
@@ -441,6 +445,9 @@ export default function AdminDashboardV2() {
                         <div className="min-w-[200px]">
                           <p className="font-mono text-sm text-primary-600 mb-1">{complaint.complaintId}</p>
                           <p className="font-medium text-sm mb-1">{t(`categories.${complaint.category}`)}</p>
+                          {(complaint.user?.collegeName || complaint.user?.collegeCity) && (
+                            <p className="text-xs text-gray-600 mb-1">{complaint.user?.collegeName || '—'}{complaint.user?.collegeCity ? `, ${complaint.user.collegeCity}` : ''}</p>
+                          )}
                           <div className="flex items-center justify-between">
                             <StatusBadge status={complaint.status} size="sm" />
                             <Link to={`/admin/complaints/${complaint._id}`} className="text-xs text-primary-600 hover:underline">View →</Link>

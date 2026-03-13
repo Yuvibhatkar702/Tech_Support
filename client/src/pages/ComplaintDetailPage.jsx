@@ -6,6 +6,18 @@ import { adminApi } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+const toAssetUrl = (filePath) => {
+  if (!filePath) return null;
+  const normalized = String(filePath).replace(/\\/g, '/');
+  const marker = '/uploads/';
+  const idx = normalized.lastIndexOf(marker);
+  if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
+  if (normalized.startsWith('/uploads/')) return `${API_BASE}${normalized}`;
+  if (normalized.startsWith('uploads/')) return `${API_BASE}/${normalized}`;
+  const bareIdx = normalized.lastIndexOf('uploads/');
+  if (bareIdx >= 0) return `${API_BASE}/${normalized.slice(bareIdx)}`;
+  return `${API_BASE}/${normalized.replace(/^\/+/, '')}`;
+};
 
 export default function ComplaintDetailPage() {
   const { t } = useTranslation();
@@ -159,7 +171,7 @@ export default function ComplaintDetailPage() {
         {/* ── Submitter Info ─────────────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-3">Submitter Info</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Name</p>
               <p className="font-medium text-gray-900">{complaint.user?.name || 'N/A'}</p>
@@ -167,6 +179,14 @@ export default function ComplaintDetailPage() {
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Phone</p>
               <p className="font-medium text-gray-900">{complaint.user?.phoneNumber || complaint.whatsappNumber || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">College Name</p>
+              <p className="font-medium text-gray-900">{complaint.user?.collegeName || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">College Code</p>
+              <p className="font-medium text-gray-900">{complaint.user?.collegeCode || 'N/A'}</p>
             </div>
             <div>
               <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Language</p>
@@ -351,10 +371,10 @@ export default function ComplaintDetailPage() {
               <h2 className="text-base font-semibold text-gray-900 mb-3">Screenshot</h2>
               <div className="rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
                 <img
-                  src={`${API_BASE}/${complaint.image.filePath.replace(/\\/g, '/')}`}
+                  src={toAssetUrl(complaint.image.filePath)}
                   alt="Screenshot"
                   className="w-full max-h-80 object-contain cursor-pointer hover:opacity-90 transition"
-                  onClick={() => window.open(`${API_BASE}/${complaint.image.filePath.replace(/\\/g, '/')}`, '_blank')}
+                  onClick={() => window.open(toAssetUrl(complaint.image.filePath), '_blank')}
                 />
               </div>
             </div>
@@ -366,7 +386,7 @@ export default function ComplaintDetailPage() {
               <h2 className="text-base font-semibold text-gray-900 mb-3">Screenshots ({complaint.images.length})</h2>
               <div className="grid grid-cols-2 gap-2">
                 {complaint.images.map((img, i) => {
-                  const imgUrl = img.url || (img.filePath ? `${API_BASE}/${img.filePath.replace(/\\/g, '/')}` : null);
+                  const imgUrl = img.url || toAssetUrl(img.filePath);
                   if (!imgUrl) return null;
                   return (
                     <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
@@ -386,7 +406,7 @@ export default function ComplaintDetailPage() {
             <h2 className="text-base font-semibold text-gray-900 mb-3">Attachments ({complaint.additionalFiles.length})</h2>
             <div className="space-y-2">
               {complaint.additionalFiles.map((file, i) => {
-                const fileUrl = file.url || (file.filePath ? `${API_BASE}/${file.filePath.replace(/\\/g, '/')}` : null);
+                const fileUrl = file.url || toAssetUrl(file.filePath);
                 return (
                   <a key={i} href={fileUrl || '#'} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition">
@@ -407,7 +427,7 @@ export default function ComplaintDetailPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-3">Voice Note</h2>
             <audio controls className="w-full mb-2">
-              <source src={`${API_BASE}/${complaint.voiceNote.filePath.replace(/\\/g, '/')}`} />
+              <source src={toAssetUrl(complaint.voiceNote.filePath)} />
             </audio>
             {complaint.voiceNote.duration && (
               <p className="text-xs text-gray-500">Duration: {complaint.voiceNote.duration}s</p>
@@ -445,7 +465,7 @@ export default function ComplaintDetailPage() {
             {complaint.resolution.images && complaint.resolution.images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                 {complaint.resolution.images.map((img, i) => {
-                  const imgUrl = img.url || (img.filePath ? `${API_BASE}/${img.filePath.replace(/\\/g, '/')}` : null);
+                  const imgUrl = img.url || toAssetUrl(img.filePath);
                   if (!imgUrl) return null;
                   return (
                     <a key={i} href={imgUrl} target="_blank" rel="noopener noreferrer"
@@ -467,7 +487,7 @@ export default function ComplaintDetailPage() {
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {complaint.resolutionProof.map((proof, index) => {
-                const proofUrl = proof.url || (proof.filePath ? `${API_BASE}/${proof.filePath.replace(/\\/g, '/')}` : null);
+                const proofUrl = proof.url || toAssetUrl(proof.filePath);
                 if (!proofUrl) return null;
                 return (
                   <a key={index} href={proofUrl} target="_blank" rel="noopener noreferrer"
@@ -505,7 +525,7 @@ export default function ComplaintDetailPage() {
             {complaint.reopenProof && complaint.reopenProof.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                 {complaint.reopenProof.map((proof, i) => {
-                  const proofUrl = proof.url || (proof.filePath ? `${API_BASE}/${proof.filePath.replace(/\\/g, '/')}` : null);
+                  const proofUrl = proof.url || toAssetUrl(proof.filePath);
                   if (!proofUrl) return null;
                   return (
                     <a key={i} href={proofUrl} target="_blank" rel="noopener noreferrer"

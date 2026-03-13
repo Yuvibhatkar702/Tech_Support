@@ -12,11 +12,7 @@ const { notifyNewComplaint, notifyStatusUpdate } = require('../services/socketSe
 const { getEstimatedResolution, calculateExpectedResolution, calculateRemainingTime } = require('../utils/resolutionTime');
 const { getDepartmentByCategory, getDepartmentByCategoryAsync } = require('../utils/departmentMapper');
 const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('../utils/progressTracker');
-
-// ─── In-memory OTP store for tracking by mobile number ──────────────
-// Key: phoneNumber, Value: { otp, expiresAt, attempts }
-
-// Cleanup expired OTPs every 10 minutes
+const { normalizeUploadPath } = require('../utils/uploadPath');
 
 /**
  * Classify image endpoint (deprecated - AI model removed)
@@ -118,7 +114,7 @@ exports.createComplaint = async (req, res) => {
         const entry = {
           originalName: uploadedImage.originalname,
           fileName: compressedFileName,
-          filePath: compressedPath,
+          filePath: normalizeUploadPath(compressedPath),
           mimeType: 'image/jpeg',
           size: uploadedImage.size,
           compressedSize: compressedStats.size,
@@ -149,7 +145,7 @@ exports.createComplaint = async (req, res) => {
       additionalFilesData = uploadedAdditionalFiles.map(file => ({
         originalName: file.originalname,
         fileName: file.filename,
-        filePath: file.path,
+        filePath: normalizeUploadPath(file.path),
         mimeType: file.mimetype,
         size: file.size,
       }));
@@ -1091,7 +1087,7 @@ exports.reopenComplaint = async (req, res) => {
       complaint.reopenProof = complaint.reopenProof || [];
       complaint.reopenProof.push({
         fileName: req.file.filename,
-        filePath: req.file.path.replace(/\\/g, '/'),
+        filePath: normalizeUploadPath(req.file.path),
         uploadedAt: new Date(),
       });
     }

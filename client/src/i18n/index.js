@@ -41,8 +41,8 @@ const resources = {
       home_features_title: 'How It Works',
       home_step1: 'Capture Photo',
       home_step1_desc: 'Take a photo of the issue using your device camera',
-      home_step2: 'Add Location',
-      home_step2_desc: 'GPS location is automatically captured',
+      home_step2: 'Add College ID',
+      home_step2_desc: 'College ID is used to verify your institute',
       home_step3: 'Submit & Track',
       home_step3_desc: 'Receive updates via WhatsApp',
       

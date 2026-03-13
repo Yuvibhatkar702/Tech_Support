@@ -7,6 +7,7 @@ const config = require('../config');
 const smsService = require('../services/smsService');
 const { getProgressPercentage, getStatusLabel, getStatusTimeline } = require('../utils/progressTracker');
 const { calculateRemainingTime } = require('../utils/resolutionConfig');
+const { normalizeUploadPath } = require('../utils/uploadPath');
 
 /**
  * Generate JWT token for official
@@ -509,7 +510,7 @@ exports.resolveComplaint = async (req, res) => {
     if (req.files && req.files.length > 0) {
       complaint.resolutionProof = req.files.map((f) => ({
         fileName: f.filename,
-        filePath: f.path,
+        filePath: normalizeUploadPath(f.path),
         uploadedAt: new Date(),
       }));
     }
@@ -580,7 +581,7 @@ exports.reassignComplaint = async (req, res) => {
       reassignImages = uploadedFiles.map(file => ({
         originalName: file.originalname,
         fileName: file.filename,
-        filePath: file.path,
+        filePath: normalizeUploadPath(file.path),
         mimeType: file.mimetype,
         size: file.size,
       }));

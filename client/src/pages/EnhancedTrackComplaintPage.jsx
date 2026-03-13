@@ -289,18 +289,19 @@ function ComplaintCard({ complaint }) {
           </div>
         </div>
 
-        {/* Location */}
-        {complaint.location?.address && (
-          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <MapPinIcon className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">{t('location')}</p>
-              <p className="text-sm text-gray-900">{complaint.location.address}</p>
-            </div>
+        {/* College */}
+        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <MapPinIcon className="w-5 h-5 text-blue-600" />
           </div>
-        )}
+          <div className="flex-1">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">{t('college', 'College')}</p>
+            <p className="text-sm text-gray-900">
+              {complaint.user?.collegeName || complaint.collegeName || 'Name not found'}
+              {(complaint.user?.collegeCity || complaint.collegeCity) ? `, ${complaint.user?.collegeCity || complaint.collegeCity}` : ''}
+            </p>
+          </div>
+        </div>
 
         {/* Date */}
         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">

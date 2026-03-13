@@ -48,6 +48,18 @@ function StatCard({ label, value, color }) {
 }
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+const toAssetUrl = (filePath) => {
+  if (!filePath) return null;
+  const normalized = String(filePath).replace(/\\/g, '/');
+  const marker = '/uploads/';
+  const idx = normalized.lastIndexOf(marker);
+  if (idx >= 0) return `${API_BASE}/uploads/${normalized.slice(idx + marker.length)}`;
+  if (normalized.startsWith('/uploads/')) return `${API_BASE}${normalized}`;
+  if (normalized.startsWith('uploads/')) return `${API_BASE}/${normalized}`;
+  const bareIdx = normalized.lastIndexOf('uploads/');
+  if (bareIdx >= 0) return `${API_BASE}/${normalized.slice(bareIdx)}`;
+  return `${API_BASE}/${normalized.replace(/^\/+/, '')}`;
+};
 
 export default function DepartmentDashboardPage() {
   const navigate = useNavigate();
@@ -224,12 +236,12 @@ export default function DepartmentDashboardPage() {
             complaints.map((c) => {
               const rawPath = c.image?.filePath || c.images?.[0]?.filePath || '';
               const imgSrc = rawPath
-                ? `${API_BASE}/${rawPath.replace(/\\/g, '/')}`
+                ? toAssetUrl(rawPath)
                 : null;
               // Resolution proof image
               const proofPath = c.resolutionProof?.[0]?.filePath || '';
               const proofSrc = proofPath
-                ? `${API_BASE}/${proofPath.replace(/\\/g, '/')}`
+                ? toAssetUrl(proofPath)
                 : null;
               return (
                 <div key={c._id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition">
@@ -297,6 +309,11 @@ export default function DepartmentDashboardPage() {
                       {c.websiteName && <p className="text-sm text-gray-800"><span className="font-semibold">Website:</span> {c.websiteName}</p>}
                       <p className="text-sm text-gray-800"><span className="font-semibold">Page/Module:</span> {c.category}</p>
                       {c.issueType && <p className="text-sm text-gray-800"><span className="font-semibold">Issue Type:</span> {c.issueType}</p>}
+                      {(c.user?.collegeName || c.user?.collegeCity) && (
+                        <p className="text-sm text-gray-800">
+                          <span className="font-semibold">College:</span> {c.user?.collegeName || '—'}{c.user?.collegeCity ? `, ${c.user.collegeCity}` : ''}
+                        </p>
+                      )}
                       {c.priority && (
                         <p className="text-sm text-gray-800">
                           <span className="font-semibold">Priority:</span>{' '}
@@ -322,7 +339,7 @@ export default function DepartmentDashboardPage() {
                       <p className="text-xs font-semibold text-green-700 mb-2">📷 Resolution Proof</p>
                       <div className="flex gap-2">
                         {c.resolutionProof.map((p, i) => {
-                          const pSrc = `${API_BASE}/${(p.filePath || '').replace(/\\/g, '/')}`;
+                          const pSrc = toAssetUrl(p.filePath);
                           return (
                             <img
                               key={i}
@@ -436,7 +453,7 @@ export default function DepartmentDashboardPage() {
       {detailComplaint && (() => {
         const d = detailComplaint;
         const dImgPath = d.image?.filePath || d.images?.[0]?.filePath || '';
-        const dImgSrc = dImgPath ? `${API_BASE}/${dImgPath.replace(/\\/g, '/')}` : null;
+        const dImgSrc = toAssetUrl(dImgPath);
         const resolvedTime = d.closedAt || d.resolvedAt || d.resolution?.resolvedAt
           || d.statusHistory?.slice().reverse().find(h => h.status === 'closed')?.changedAt;
         const createdTime = new Date(d.createdAt);
@@ -527,6 +544,12 @@ export default function DepartmentDashboardPage() {
                   <p className="text-xs text-gray-500 mb-1">Filed On</p>
                   <p className="text-sm font-semibold text-gray-900">{createdTime.toLocaleDateString()} {createdTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
+                <div className="bg-gray-50 rounded-xl p-3 sm:col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">College</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {d.user?.collegeName || '—'}{d.user?.collegeCity ? `, ${d.user.collegeCity}` : ''}
+                  </p>
+                </div>
               </div>
 
               {d.description && (
@@ -543,7 +566,7 @@ export default function DepartmentDashboardPage() {
                   <div className="flex flex-wrap gap-2">
                     {d.additionalFiles.map((file, i) => {
                       const isImage = file.mimeType?.startsWith('image/');
-                      const fileSrc = `${API_BASE}/${(file.filePath || '').replace(/\\/g, '/')}`;
+                      const fileSrc = toAssetUrl(file.filePath);
                       return isImage ? (
                         <img
                           key={i}
@@ -612,7 +635,7 @@ export default function DepartmentDashboardPage() {
                   <p className="text-xs font-semibold text-green-700 mb-2">📷 Resolution Proof ({d.resolutionProof.length})</p>
                   <div className="flex flex-wrap gap-2">
                     {d.resolutionProof.map((p, i) => {
-                      const pSrc = `${API_BASE}/${(p.filePath || '').replace(/\\/g, '/')}`;
+                      const pSrc = toAssetUrl(p.filePath);
                       return (
                         <img key={i} src={pSrc} alt={`Proof ${i + 1}`}
                           className="w-20 h-20 rounded-lg object-cover cursor-pointer border hover:opacity-80 transition"
@@ -653,7 +676,7 @@ export default function DepartmentDashboardPage() {
                         <p className="text-xs text-red-600 mb-1">Reopen Proof:</p>
                         <div className="flex flex-wrap gap-2">
                           {d.reopenProof.map((p, i) => {
-                            const rpSrc = `${API_BASE}/${(p.filePath || '').replace(/\\/g, '/')}`;
+                            const rpSrc = toAssetUrl(p.filePath);
                             return (
                               <img key={i} src={rpSrc} alt={`Reopen ${i + 1}`}
                                 className="w-16 h-16 rounded-lg object-cover cursor-pointer border hover:opacity-80 transition"
