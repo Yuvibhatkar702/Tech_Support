@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const _rawApiUrl = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = _rawApiUrl.endsWith('/api') || _rawApiUrl === '/api' ? _rawApiUrl : `${_rawApiUrl.replace(/\/$/, '')}/api`;
 const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
 const ACTIVITY_EVENTS = ['mousemove', 'click', 'keydown', 'scroll', 'touchstart'];
 
