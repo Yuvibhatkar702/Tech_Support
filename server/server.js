@@ -97,6 +97,23 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint for platform checks / human verification
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Tech Support API is running',
+    health: '/health',
+    apiBase: '/api',
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API base is live',
+  });
+});
+
 // Database connection and server start
 let isConnected = false;
 
